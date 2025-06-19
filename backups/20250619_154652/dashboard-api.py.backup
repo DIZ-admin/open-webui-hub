@@ -1,0 +1,1591 @@
+#!/usr/bin/env python3
+"""
+Open WebUI Hub - Dashboard API
+Простой API для взаимодействия с Docker и мониторинга сервисов
+"""
+
+import json
+import subprocess
+import psutil
+import time
+import os
+import yaml
+import shutil
+from datetime import datetime
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import docker
+import requests
+
+app = Flask(__name__)
+CORS(app)  # Разрешить CORS для фронтенда
+
+# Инициализация Docker клиента
+try:
+    docker_client = docker.from_env()
+except Exception as e:
+    print(f"Ошибка подключения к Docker: {e}")
+    docker_client = None
+
+# Базовые пути проекта
+PROJECT_ROOT = '/Users/kostas/Documents/Projects/open-webui-hub'
+COMPOSE_FILE = os.path.join(PROJECT_ROOT, 'compose.local.yml')
+ENV_DIR = os.path.join(PROJECT_ROOT, 'env')
+CONF_DIR = os.path.join(PROJECT_ROOT, 'conf')
+BACKUP_DIR = os.path.join(PROJECT_ROOT, 'backups')
+
+# Конфигурация сервисов
+SERVICES = {
+    'ollama': {
+        'container_name': 'open-webui-hub-ollama-1',
+        'port': 11435,
+        'health_url': 'http://localhost:11435/api/version',
+        'env_file': 'ollama.env',
+        'config_files': [],
+        'data_dir': 'data/ollama',
+        'description': 'Ollama LLM Server',
+        'category': 'ai'
+    },
+    'litellm': {
+        'container_name': 'open-webui-hub-litellm-1',
+        'port': 4000,
+        'health_url': 'http://localhost:4000/health',
+        'auth_header': 'Bearer sk-1234567890abcdef',
+        'env_file': 'litellm.env',
+        'config_files': ['conf/litellm/litellm_config.yaml'],
+        'data_dir': None,
+        'description': 'LiteLLM Unified API Proxy',
+        'category': 'ai'
+    },
+    'db': {
+        'container_name': 'open-webui-hub-db-1',
+        'port': 5432,
+        'health_url': 'http://localhost:5002/api/db/health',
+        'env_file': 'db.env',
+        'config_files': [],
+        'data_dir': 'data/postgres',
+        'description': 'PostgreSQL Database',
+        'category': 'database'
+    },
+    'redis': {
+        'container_name': 'open-webui-hub-redis-1',
+        'port': 6379,
+        'health_url': 'http://localhost:8001',
+        'env_file': 'redis.env',
+        'config_files': [],
+        'data_dir': 'data/redis',
+        'description': 'Redis Cache & Session Store',
+        'category': 'database'
+    },
+    'openwebui': {
+        'container_name': 'open-webui-hub-openwebui-1',
+        'port': 3000,
+        'health_url': 'http://localhost:3000',
+        'env_file': 'openwebui.env',
+        'config_files': [],
+        'data_dir': 'data/openwebui',
+        'description': 'Open WebUI Interface',
+        'category': 'frontend'
+    },
+    'searxng': {
+        'container_name': 'open-webui-hub-searxng-1',
+        'port': 8080,
+        'health_url': 'http://localhost:8080',
+        'env_file': 'searxng.env',
+        'config_files': ['conf/searxng/settings.yml', 'conf/searxng/uwsgi.ini'],
+        'data_dir': None,
+        'description': 'SearXNG Search Engine',
+        'category': 'search'
+    },
+    'nginx': {
+        'container_name': 'open-webui-hub-nginx-1',
+        'port': 80,
+        'health_url': 'http://localhost',
+        'env_file': None,
+        'config_files': ['conf/nginx/nginx.conf', 'conf/nginx/conf.d/default.conf'],
+        'data_dir': None,
+        'description': 'Nginx Reverse Proxy',
+        'category': 'proxy'
+    },
+    'watchtower': {
+        'container_name': 'open-webui-hub-watchtower-1',
+        'port': None,
+        'health_url': None,
+        'env_file': 'watchtower.env',
+        'config_files': [],
+        'data_dir': None,
+        'description': 'Container Auto-updater',
+        'category': 'system'
+    },
+    'auth': {
+        'container_name': 'open-webui-hub-auth-1',
+        'port': 9090,
+        'health_url': 'http://localhost:9090/health',
+        'env_file': 'auth.env',
+        'config_files': [],
+        'data_dir': None,
+        'description': 'JWT Auth Validator',
+        'category': 'system'
+    },
+    'docling': {
+        'container_name': 'open-webui-hub-docling-1',
+        'port': 5001,
+        'health_url': 'http://localhost:5001/health',
+        'env_file': 'docling.env',
+        'config_files': [],
+        'data_dir': None,
+        'description': 'Document Processing Service',
+        'category': 'ai'
+    },
+    'edgetts': {
+        'container_name': 'open-webui-hub-edgetts-1',
+        'port': 5050,
+        'health_url': 'http://localhost:5050/voices',
+        'auth_header': 'Bearer your_api_key_here',
+        'env_file': 'edgetts.env',
+        'config_files': [],
+        'data_dir': None,
+        'description': 'Edge TTS Service',
+        'category': 'ai'
+    },
+    'mcposerver': {
+        'container_name': 'open-webui-hub-mcposerver-1',
+        'port': 8000,
+        'health_url': 'http://localhost:8000/docs',
+        'env_file': 'mcposerver.env',
+        'config_files': ['conf/mcposerver/config.json'],
+        'data_dir': None,
+        'description': 'MCPO Server',
+        'category': 'ai'
+    },
+    'tika': {
+        'container_name': 'open-webui-hub-tika-1',
+        'port': 9998,
+        'health_url': 'http://localhost:9998/tika',
+        'env_file': 'tika.env',
+        'config_files': [],
+        'data_dir': None,
+        'description': 'Apache Tika Document Parser',
+        'category': 'ai'
+    }
+}
+
+@app.route('/api/status', methods=['GET'])
+def get_services_status():
+    """Получить статус всех сервисов"""
+    status = {}
+    
+    for service_name, config in SERVICES.items():
+        try:
+            container_status = get_container_status(config['container_name'])
+            health_status = check_service_health(
+                config.get('health_url'),
+                config.get('auth_header')
+            )
+
+            status[service_name] = {
+                'container_status': container_status,
+                'health_status': health_status,
+                'port': config.get('port'),
+                'url': config.get('health_url')
+            }
+        except Exception as e:
+            status[service_name] = {
+                'container_status': 'error',
+                'health_status': 'error',
+                'error': str(e)
+            }
+    
+    return jsonify(status)
+
+@app.route('/api/metrics', methods=['GET'])
+def get_system_metrics():
+    """Получить метрики системы"""
+    try:
+        # Системные метрики
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Docker метрики
+        container_count = 0
+        if docker_client:
+            containers = docker_client.containers.list()
+            container_count = len(containers)
+        
+        metrics = {
+            'cpu_usage': f"{cpu_percent:.1f}%",
+            'memory_usage': f"{memory.percent:.1f}%",
+            'disk_usage': f"{(disk.used / disk.total * 100):.1f}%",
+            'container_count': f"{container_count} активных",
+            'memory_total': f"{memory.total / (1024**3):.1f} GB",
+            'disk_total': f"{disk.total / (1024**3):.1f} GB"
+        }
+        
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/logs/<service>', methods=['GET'])
+def get_service_logs(service):
+    """Получить логи сервиса"""
+    if service not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+    
+    try:
+        container_name = SERVICES[service]['container_name']
+        lines = request.args.get('lines', 50, type=int)
+        
+        if docker_client:
+            container = docker_client.containers.get(container_name)
+            logs = container.logs(tail=lines, timestamps=True).decode('utf-8')
+            return jsonify({'logs': logs.split('\n')})
+        else:
+            # Fallback к docker CLI
+            result = subprocess.run(
+                ['docker', 'logs', '--tail', str(lines), container_name],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return jsonify({'logs': result.stdout.split('\n')})
+            else:
+                return jsonify({'error': result.stderr}), 500
+                
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/docker/<action>', methods=['POST'])
+def docker_action(action):
+    """Выполнить Docker действие"""
+    try:
+        if action == 'start':
+            result = subprocess.run(
+                ['docker-compose', '-f', 'compose.local.yml', 'up', '-d'],
+                capture_output=True, text=True, cwd='/Users/kostas/Documents/Projects/open-webui-hub'
+            )
+        elif action == 'stop':
+            result = subprocess.run(
+                ['docker-compose', '-f', 'compose.local.yml', 'down'],
+                capture_output=True, text=True, cwd='/Users/kostas/Documents/Projects/open-webui-hub'
+            )
+        elif action == 'restart':
+            result = subprocess.run(
+                ['docker-compose', '-f', 'compose.local.yml', 'restart'],
+                capture_output=True, text=True, cwd='/Users/kostas/Documents/Projects/open-webui-hub'
+            )
+        else:
+            return jsonify({'error': 'Неизвестное действие'}), 400
+        
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout,
+            'error': result.stderr
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ollama/models', methods=['GET'])
+def get_ollama_models():
+    """Получить список моделей Ollama"""
+    try:
+        response = requests.get('http://localhost:11435/api/tags', timeout=5)
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': 'Ollama недоступен'}), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ollama/pull', methods=['POST'])
+def pull_ollama_model():
+    """Скачать модель Ollama"""
+    try:
+        data = request.get_json()
+        model_name = data.get('model')
+
+        if not model_name:
+            return jsonify({'error': 'Не указано название модели'}), 400
+
+        # Запуск скачивания модели в фоне
+        subprocess.Popen([
+            'docker', 'exec', 'open-webui-hub-ollama-1',
+            'ollama', 'pull', model_name
+        ])
+
+        return jsonify({'message': f'Скачивание модели {model_name} начато'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/db/health', methods=['GET'])
+def check_db_health():
+    """Проверить здоровье PostgreSQL"""
+    try:
+        result = subprocess.run(
+            ['docker', 'exec', 'open-webui-hub-db-1', 'pg_isready', '-U', 'postgres'],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            return jsonify({'status': 'healthy', 'message': 'PostgreSQL is ready'})
+        else:
+            return jsonify({'status': 'unhealthy', 'error': result.stderr}), 503
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+@app.route('/api/litellm/status', methods=['GET'])
+def get_litellm_status():
+    """Получить детальный статус LiteLLM"""
+    try:
+        headers = {'Authorization': 'Bearer sk-1234567890abcdef'}
+
+        # Используем /v1/models как health check (более надежно)
+        models_response = requests.get('http://localhost:4000/v1/models', headers=headers, timeout=10)
+
+        if models_response.status_code == 200:
+            models_data = models_response.json()
+
+            # Пытаемся получить health данные, но не блокируемся на них
+            health_data = {}
+            try:
+                health_response = requests.get('http://localhost:4000/health', headers=headers, timeout=5)
+                if health_response.status_code == 200:
+                    health_data = health_response.json()
+            except:
+                # Если health endpoint недоступен, продолжаем без него
+                pass
+
+            return jsonify({
+                'status': 'healthy',
+                'models': models_data.get('data', []),
+                'total_models': len(models_data.get('data', [])),
+                'healthy_endpoints': health_data.get('healthy_count', 'unknown'),
+                'unhealthy_endpoints': health_data.get('unhealthy_count', 'unknown'),
+                'health_data_available': bool(health_data)
+            })
+        else:
+            return jsonify({
+                'status': 'unhealthy',
+                'error': f'Models endpoint failed with status {models_response.status_code}'
+            }), 503
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+@app.route('/api/litellm/models', methods=['GET'])
+def get_litellm_models():
+    """Получить список доступных моделей LiteLLM"""
+    try:
+        headers = {'Authorization': 'Bearer sk-1234567890abcdef'}
+        response = requests.get('http://localhost:4000/v1/models', headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': 'Failed to fetch models'}), response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/litellm/test', methods=['POST'])
+def test_litellm_model():
+    """Протестировать модель LiteLLM"""
+    try:
+        data = request.get_json()
+        model_name = data.get('model', 'llama3')
+        test_message = data.get('message', 'Привет! Как дела?')
+
+        headers = {
+            'Authorization': 'Bearer sk-1234567890abcdef',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'model': model_name,
+            'messages': [{'role': 'user', 'content': test_message}],
+            'max_tokens': 100
+        }
+
+        response = requests.post(
+            'http://localhost:4000/v1/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=90  # Увеличили таймаут для первой загрузки модели
+        )
+
+        if response.status_code == 200:
+            return jsonify({
+                'status': 'success',
+                'response': response.json()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'error': f'Request failed with status {response.status_code}',
+                'details': response.text
+            }), response.status_code
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+def get_container_status(container_name):
+    """Получить статус контейнера"""
+    try:
+        if docker_client:
+            container = docker_client.containers.get(container_name)
+            return container.status
+        else:
+            result = subprocess.run(
+                ['docker', 'inspect', '--format={{.State.Status}}', container_name],
+                capture_output=True, text=True
+            )
+            return result.stdout.strip() if result.returncode == 0 else 'not_found'
+    except:
+        return 'not_found'
+
+def check_service_health(health_url, auth_header=None):
+    """Проверить здоровье сервиса"""
+    if not health_url:
+        return 'unknown'
+
+    try:
+        headers = {}
+        if auth_header:
+            headers['Authorization'] = auth_header
+
+        response = requests.get(health_url, timeout=5, headers=headers)
+        return 'healthy' if response.status_code == 200 else 'unhealthy'
+    except:
+        return 'unhealthy'
+
+def get_container_resources(container_name):
+    """Получить информацию о ресурсах контейнера"""
+    try:
+        if docker_client:
+            container = docker_client.containers.get(container_name)
+            stats = container.stats(stream=False)
+
+            # Безопасное вычисление использования CPU
+            cpu_percent = 0.0
+            try:
+                cpu_stats = stats.get('cpu_stats', {})
+                precpu_stats = stats.get('precpu_stats', {})
+
+                if cpu_stats and precpu_stats:
+                    cpu_usage = cpu_stats.get('cpu_usage', {})
+                    precpu_usage = precpu_stats.get('cpu_usage', {})
+
+                    cpu_delta = cpu_usage.get('total_usage', 0) - precpu_usage.get('total_usage', 0)
+                    system_delta = cpu_stats.get('system_cpu_usage', 0) - precpu_stats.get('system_cpu_usage', 0)
+
+                    if system_delta > 0:
+                        # Используем количество CPU ядер из системы
+                        cpu_count = len(cpu_usage.get('percpu_usage', [])) or psutil.cpu_count()
+                        cpu_percent = (cpu_delta / system_delta) * cpu_count * 100.0
+            except Exception:
+                cpu_percent = 0.0
+
+            # Безопасное получение использования памяти
+            memory_usage = 0
+            memory_limit = 0
+            memory_percent = 0.0
+            try:
+                memory_stats = stats.get('memory_stats', {})
+                memory_usage = memory_stats.get('usage', 0)
+                memory_limit = memory_stats.get('limit', 0)
+                if memory_limit > 0:
+                    memory_percent = (memory_usage / memory_limit) * 100.0
+            except Exception:
+                pass
+
+            # Безопасное получение сетевой статистики
+            network_rx = 0
+            network_tx = 0
+            try:
+                networks = stats.get('networks', {})
+                for interface in networks.values():
+                    network_rx += interface.get('rx_bytes', 0)
+                    network_tx += interface.get('tx_bytes', 0)
+            except Exception:
+                pass
+
+            return {
+                'cpu_percent': round(cpu_percent, 2),
+                'memory_usage': memory_usage,
+                'memory_limit': memory_limit,
+                'memory_percent': round(memory_percent, 2),
+                'network_rx': network_rx,
+                'network_tx': network_tx,
+                'status': container.status
+            }
+        else:
+            return {'error': 'Docker client недоступен'}
+    except Exception as e:
+        return {'error': str(e)}
+
+def read_env_file(file_path):
+    """Читать переменные окружения из файла"""
+    env_vars = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    env_vars[key.strip()] = value.strip()
+    except Exception as e:
+        env_vars['_error'] = str(e)
+    return env_vars
+
+def write_env_file(file_path, env_vars):
+    """Записать переменные окружения в файл"""
+    try:
+        # Читаем существующий файл для сохранения комментариев
+        existing_lines = []
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                existing_lines = f.readlines()
+
+        # Создаем новый контент
+        new_lines = []
+        processed_keys = set()
+
+        for line in existing_lines:
+            stripped = line.strip()
+            if stripped.startswith('#') or not stripped:
+                # Сохраняем комментарии и пустые строки
+                new_lines.append(line)
+            elif '=' in stripped:
+                key = stripped.split('=', 1)[0].strip()
+                if key in env_vars:
+                    # Обновляем существующую переменную
+                    new_lines.append(f"{key}={env_vars[key]}\n")
+                    processed_keys.add(key)
+                else:
+                    # Сохраняем неизмененную переменную
+                    new_lines.append(line)
+
+        # Добавляем новые переменные
+        for key, value in env_vars.items():
+            if key not in processed_keys and not key.startswith('_'):
+                new_lines.append(f"{key}={value}\n")
+
+        # Записываем файл
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.writelines(new_lines)
+
+    except Exception as e:
+        raise Exception(f"Ошибка записи env файла: {str(e)}")
+
+def read_config_file(file_path):
+    """Читать конфигурационный файл"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Определяем тип файла и парсим соответственно
+        if file_path.endswith(('.yml', '.yaml')):
+            try:
+                parsed = yaml.safe_load(content)
+                return {'content': content, 'parsed': parsed, 'type': 'yaml'}
+            except:
+                return {'content': content, 'type': 'text'}
+        elif file_path.endswith('.json'):
+            try:
+                parsed = json.loads(content)
+                return {'content': content, 'parsed': parsed, 'type': 'json'}
+            except:
+                return {'content': content, 'type': 'text'}
+        else:
+            return {'content': content, 'type': 'text'}
+
+    except Exception as e:
+        return {'error': str(e)}
+
+def write_config_file(file_path, content):
+    """Записать конфигурационный файл"""
+    try:
+        # Создаем директорию если не существует
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            if isinstance(content, dict) and 'content' in content:
+                f.write(content['content'])
+            else:
+                f.write(str(content))
+
+    except Exception as e:
+        raise Exception(f"Ошибка записи конфигурационного файла: {str(e)}")
+
+def create_config_backup(service_name):
+    """Создать бэкап конфигурации сервиса"""
+    try:
+        # Создаем директорию для бэкапов
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_id = f"{service_name}_{timestamp}"
+        backup_path = os.path.join(BACKUP_DIR, backup_id)
+        os.makedirs(backup_path, exist_ok=True)
+
+        service_config = SERVICES[service_name]
+
+        # Бэкап env файла
+        if service_config.get('env_file'):
+            env_path = os.path.join(ENV_DIR, service_config['env_file'])
+            if os.path.exists(env_path):
+                shutil.copy2(env_path, os.path.join(backup_path, service_config['env_file']))
+
+        # Бэкап конфигурационных файлов
+        for config_file in service_config.get('config_files', []):
+            config_path = os.path.join(PROJECT_ROOT, config_file)
+            if os.path.exists(config_path):
+                backup_config_path = os.path.join(backup_path, os.path.basename(config_file))
+                shutil.copy2(config_path, backup_config_path)
+
+        return backup_id
+
+    except Exception as e:
+        raise Exception(f"Ошибка создания бэкапа: {str(e)}")
+
+def validate_env_vars(env_vars):
+    """Валидация переменных окружения"""
+    if not isinstance(env_vars, dict):
+        raise ValueError("Переменные окружения должны быть словарем")
+
+    # Проверяем опасные переменные
+    dangerous_vars = ['PATH', 'HOME', 'USER', 'SHELL']
+    for var in dangerous_vars:
+        if var in env_vars:
+            raise ValueError(f"Изменение переменной {var} запрещено")
+
+    # Проверяем формат
+    for key, value in env_vars.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("Ключи и значения должны быть строками")
+
+        if len(key) > 100 or len(value) > 1000:
+            raise ValueError("Слишком длинные ключи или значения")
+
+        # Проверяем на опасные символы
+        if any(char in key for char in ['$', '`', ';', '|', '&']):
+            raise ValueError(f"Опасные символы в ключе: {key}")
+
+def validate_config_content(content, file_type):
+    """Валидация содержимого конфигурационных файлов"""
+    if isinstance(content, dict) and 'content' in content:
+        content_str = content['content']
+    else:
+        content_str = str(content)
+
+    # Проверяем размер
+    if len(content_str) > 100000:  # 100KB
+        raise ValueError("Файл конфигурации слишком большой")
+
+    # Проверяем на опасные команды
+    dangerous_patterns = ['rm -rf', 'sudo', 'chmod 777', 'wget', 'curl', 'exec']
+    for pattern in dangerous_patterns:
+        if pattern in content_str.lower():
+            raise ValueError(f"Обнаружена потенциально опасная команда: {pattern}")
+
+    # Валидация по типу файла
+    if file_type == 'yaml':
+        try:
+            yaml.safe_load(content_str)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Некорректный YAML: {str(e)}")
+    elif file_type == 'json':
+        try:
+            json.loads(content_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Некорректный JSON: {str(e)}")
+
+def log_security_event(event_type, details, user_ip=None):
+    """Логирование событий безопасности"""
+    timestamp = datetime.now().isoformat()
+    log_entry = {
+        'timestamp': timestamp,
+        'event_type': event_type,
+        'details': details,
+        'user_ip': user_ip
+    }
+
+    # Записываем в файл логов безопасности
+    security_log_path = os.path.join(PROJECT_ROOT, 'logs', 'security.log')
+    os.makedirs(os.path.dirname(security_log_path), exist_ok=True)
+
+    with open(security_log_path, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(log_entry) + '\n')
+
+
+
+@app.route('/api/test/<service>', methods=['GET'])
+def test_service(service):
+    """Тестировать конкретный сервис"""
+    if service == 'litellm':
+        try:
+            headers = {'Authorization': 'Bearer sk-1234567890abcdef'}
+
+            # Тест models endpoint (заменяет health check)
+            models_response = requests.get('http://localhost:4000/v1/models', headers=headers, timeout=10)
+            if models_response.status_code != 200:
+                return jsonify({'status': 'error', 'message': 'Models endpoint failed'}), 503
+
+            models_data = models_response.json()
+            model_count = len(models_data.get('data', []))
+
+            # Тест генерации
+            test_payload = {
+                'model': 'llama3',
+                'messages': [{'role': 'user', 'content': 'Test'}],
+                'max_tokens': 10
+            }
+
+            gen_response = requests.post(
+                'http://localhost:4000/v1/chat/completions',
+                headers={**headers, 'Content-Type': 'application/json'},
+                json=test_payload,
+                timeout=15
+            )
+
+            generation_works = gen_response.status_code == 200
+
+            return jsonify({
+                'status': 'success',
+                'model_count': model_count,
+                'generation_test': 'passed' if generation_works else 'failed',
+                'available_models': [m['id'] for m in models_data.get('data', [])]
+            })
+
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    elif service == 'ollama':
+        try:
+            response = requests.get('http://localhost:11435/api/version', timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                models_response = requests.get('http://localhost:11435/api/tags', timeout=5)
+                model_count = 0
+                if models_response.status_code == 200:
+                    models_data = models_response.json()
+                    model_count = len(models_data.get('models', []))
+                
+                return jsonify({
+                    'status': 'success',
+                    'version': data.get('version'),
+                    'model_count': model_count
+                })
+            else:
+                return jsonify({'status': 'error', 'message': 'Сервис недоступен'}), 503
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    elif service == 'redis':
+        try:
+            response = requests.get('http://localhost:8001', timeout=5)
+            return jsonify({
+                'status': 'success' if response.status_code == 200 else 'error',
+                'web_ui': 'доступен' if response.status_code == 200 else 'недоступен'
+            })
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    elif service == 'db':
+        # Для PostgreSQL нужно более сложное тестирование
+        container_status = get_container_status('open-webui-hub-db-1')
+        return jsonify({
+            'status': 'success' if container_status == 'running' else 'error',
+            'container_status': container_status
+        })
+    
+    else:
+        return jsonify({'error': 'Неизвестный сервис'}), 404
+
+# ===== НОВЫЕ ENDPOINTS ДЛЯ РАСШИРЕННОГО УПРАВЛЕНИЯ =====
+
+@app.route('/api/services', methods=['GET'])
+def get_services_info():
+    """Получить подробную информацию о всех сервисах"""
+    services_info = {}
+    include_resources = request.args.get('resources', 'false').lower() == 'true'
+
+    for service_name, config in SERVICES.items():
+        try:
+            container_status = get_container_status(config['container_name'])
+            health_status = check_service_health(
+                config.get('health_url'),
+                config.get('auth_header')
+            )
+
+            # Получение ресурсов контейнера только если запрошено
+            resources = None
+            if include_resources:
+                resources = get_container_resources(config['container_name'])
+
+            services_info[service_name] = {
+                'name': service_name,
+                'description': config.get('description', ''),
+                'category': config.get('category', 'other'),
+                'container_name': config['container_name'],
+                'port': config.get('port'),
+                'container_status': container_status,
+                'health_status': health_status,
+                'env_file': config.get('env_file'),
+                'config_files': config.get('config_files', []),
+                'data_dir': config.get('data_dir'),
+                'health_url': config.get('health_url')
+            }
+
+            # Добавляем ресурсы только если они были запрошены
+            if resources is not None:
+                services_info[service_name]['resources'] = resources
+
+        except Exception as e:
+            services_info[service_name] = {
+                'name': service_name,
+                'error': str(e),
+                'container_status': 'error',
+                'health_status': 'error'
+            }
+
+    return jsonify(services_info)
+
+@app.route('/api/service/<service_name>/control', methods=['POST'])
+def control_service(service_name):
+    """Управление отдельным сервисом (start/stop/restart)"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    data = request.get_json()
+    action = data.get('action')
+
+    if action not in ['start', 'stop', 'restart']:
+        return jsonify({'error': 'Неизвестное действие'}), 400
+
+    try:
+        result = subprocess.run(
+            ['docker-compose', '-f', 'compose.local.yml', action, service_name],
+            capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
+
+        return jsonify({
+            'success': result.returncode == 0,
+            'action': action,
+            'service': service_name,
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/config', methods=['GET'])
+def get_service_config(service_name):
+    """Получить конфигурацию сервиса"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    service_config = SERVICES[service_name]
+    config_data = {}
+
+    try:
+        # Читаем переменные окружения
+        if service_config.get('env_file'):
+            env_path = os.path.join(ENV_DIR, service_config['env_file'])
+            if os.path.exists(env_path):
+                config_data['env_vars'] = read_env_file(env_path)
+
+        # Читаем конфигурационные файлы
+        config_data['config_files'] = {}
+        for config_file in service_config.get('config_files', []):
+            config_path = os.path.join(PROJECT_ROOT, config_file)
+            if os.path.exists(config_path):
+                config_data['config_files'][config_file] = read_config_file(config_path)
+
+        return jsonify(config_data)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/config', methods=['POST'])
+def update_service_config(service_name):
+    """Обновить конфигурацию сервиса"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    data = request.get_json()
+    service_config = SERVICES[service_name]
+    user_ip = request.remote_addr
+
+    try:
+        # Валидация входных данных
+        if 'env_vars' in data:
+            validate_env_vars(data['env_vars'])
+
+        if 'config_files' in data:
+            for config_file, content in data['config_files'].items():
+                if config_file not in service_config.get('config_files', []):
+                    raise ValueError(f"Файл {config_file} не разрешен для редактирования")
+
+                # Определяем тип файла
+                file_type = 'text'
+                if config_file.endswith(('.yml', '.yaml')):
+                    file_type = 'yaml'
+                elif config_file.endswith('.json'):
+                    file_type = 'json'
+
+                validate_config_content(content, file_type)
+
+        # Логируем попытку изменения конфигурации
+        log_security_event(
+            'config_update_attempt',
+            {
+                'service': service_name,
+                'has_env_vars': 'env_vars' in data,
+                'config_files': list(data.get('config_files', {}).keys()),
+                'restart_requested': data.get('restart_service', False)
+            },
+            user_ip
+        )
+
+        # Создаем бэкап перед изменениями
+        backup_id = create_config_backup(service_name)
+
+        # Обновляем переменные окружения
+        if 'env_vars' in data and service_config.get('env_file'):
+            env_path = os.path.join(ENV_DIR, service_config['env_file'])
+            write_env_file(env_path, data['env_vars'])
+
+        # Обновляем конфигурационные файлы
+        if 'config_files' in data:
+            for config_file, content in data['config_files'].items():
+                config_path = os.path.join(PROJECT_ROOT, config_file)
+                write_config_file(config_path, content)
+
+        # Логируем успешное изменение
+        log_security_event(
+            'config_updated',
+            {
+                'service': service_name,
+                'backup_id': backup_id,
+                'files_updated': list(data.get('config_files', {}).keys())
+            },
+            user_ip
+        )
+
+        # Перезапускаем сервис если требуется
+        if data.get('restart_service', False):
+            restart_result = subprocess.run(
+                ['docker-compose', '-f', 'compose.local.yml', 'restart', service_name],
+                capture_output=True, text=True, cwd=PROJECT_ROOT
+            )
+
+            log_security_event(
+                'service_restarted',
+                {
+                    'service': service_name,
+                    'success': restart_result.returncode == 0,
+                    'output': restart_result.stdout[:500]  # Ограничиваем размер лога
+                },
+                user_ip
+            )
+
+            return jsonify({
+                'success': True,
+                'backup_id': backup_id,
+                'restart_success': restart_result.returncode == 0,
+                'restart_output': restart_result.stdout,
+                'restart_error': restart_result.stderr if restart_result.returncode != 0 else None
+            })
+
+        return jsonify({
+            'success': True,
+            'backup_id': backup_id,
+            'message': 'Конфигурация обновлена'
+        })
+
+    except ValueError as e:
+        log_security_event(
+            'config_validation_failed',
+            {'service': service_name, 'error': str(e)},
+            user_ip
+        )
+        return jsonify({'error': f'Ошибка валидации: {str(e)}'}), 400
+    except Exception as e:
+        log_security_event(
+            'config_update_error',
+            {'service': service_name, 'error': str(e)},
+            user_ip
+        )
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/resources', methods=['GET'])
+def get_service_resources(service_name):
+    """Получить информацию о ресурсах сервиса"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    container_name = SERVICES[service_name]['container_name']
+    resources = get_container_resources(container_name)
+
+    return jsonify(resources)
+
+@app.route('/api/service/<service_name>/logs/stream', methods=['GET'])
+def stream_service_logs(service_name):
+    """Получить логи сервиса в реальном времени"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    try:
+        container_name = SERVICES[service_name]['container_name']
+        lines = request.args.get('lines', 100, type=int)
+        follow = request.args.get('follow', False, type=bool)
+
+        if docker_client:
+            container = docker_client.containers.get(container_name)
+
+            if follow:
+                # Для streaming логов
+                logs_stream = container.logs(tail=lines, follow=True, timestamps=True, stream=True)
+                def generate():
+                    for line in logs_stream:
+                        if isinstance(line, bytes):
+                            yield f"data: {line.decode('utf-8')}\n\n"
+                        else:
+                            yield f"data: {str(line)}\n\n"
+
+                return app.response_class(generate(), mimetype='text/plain')
+            else:
+                # Для обычных логов
+                logs = container.logs(tail=lines, timestamps=True)
+                if isinstance(logs, bytes):
+                    logs_text = logs.decode('utf-8')
+                else:
+                    logs_text = str(logs)
+
+                return jsonify({
+                    'logs': logs_text.split('\n'),
+                    'container': container_name
+                })
+        else:
+            # Fallback к docker CLI
+            cmd = ['docker', 'logs', '--tail', str(lines)]
+            if follow:
+                cmd.append('-f')
+            cmd.append(container_name)
+
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                return jsonify({
+                    'logs': result.stdout.split('\n'),
+                    'container': container_name
+                })
+            else:
+                return jsonify({'error': result.stderr}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/backup', methods=['POST'])
+def backup_service_config(service_name):
+    """Создать бэкап конфигурации сервиса"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    try:
+        backup_id = create_config_backup(service_name)
+        return jsonify({
+            'success': True,
+            'backup_id': backup_id,
+            'message': f'Бэкап создан: {backup_id}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/backups', methods=['GET'])
+def list_backups():
+    """Получить список всех бэкапов"""
+    try:
+        if not os.path.exists(BACKUP_DIR):
+            return jsonify({'backups': []})
+
+        backups = []
+        for backup_name in os.listdir(BACKUP_DIR):
+            backup_path = os.path.join(BACKUP_DIR, backup_name)
+            if os.path.isdir(backup_path):
+                # Парсим имя бэкапа
+                parts = backup_name.split('_')
+                if len(parts) >= 3:
+                    service = '_'.join(parts[:-2])
+                    date_str = parts[-2]
+                    time_str = parts[-1]
+
+                    # Получаем информацию о файлах
+                    files = os.listdir(backup_path)
+
+                    backups.append({
+                        'id': backup_name,
+                        'service': service,
+                        'date': date_str,
+                        'time': time_str,
+                        'files': files,
+                        'created': os.path.getctime(backup_path)
+                    })
+
+        # Сортируем по дате создания (новые первыми)
+        backups.sort(key=lambda x: x['created'], reverse=True)
+
+        return jsonify({'backups': backups})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/models', methods=['GET'])
+def get_service_models(service_name):
+    """Получить модели для AI сервисов"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    try:
+        if service_name == 'ollama':
+            response = requests.get('http://localhost:11435/api/tags', timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                models = []
+                for model in data.get('models', []):
+                    models.append({
+                        'name': model['name'],
+                        'size': model.get('size', 0),
+                        'modified_at': model.get('modified_at'),
+                        'digest': model.get('digest')
+                    })
+                return jsonify({'models': models})
+            else:
+                return jsonify({'error': 'Ollama недоступен'}), 503
+
+        elif service_name == 'litellm':
+            headers = {'Authorization': 'Bearer sk-1234567890abcdef'}
+            response = requests.get('http://localhost:4000/v1/models', headers=headers, timeout=10)
+            if response.status_code == 200:
+                return jsonify(response.json())
+            else:
+                return jsonify({'error': 'LiteLLM недоступен'}), 503
+        else:
+            return jsonify({'error': 'Сервис не поддерживает модели'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== СПЕЦИФИЧНЫЕ ENDPOINTS ДЛЯ СЕРВИСОВ =====
+
+@app.route('/api/service/ollama/pull', methods=['POST'])
+def ollama_pull_model():
+    """Загрузить модель в Ollama"""
+    data = request.get_json()
+    model_name = data.get('model')
+
+    if not model_name:
+        return jsonify({'error': 'Не указано имя модели'}), 400
+
+    try:
+        response = requests.post(
+            'http://localhost:11435/api/pull',
+            json={'name': model_name},
+            timeout=300  # 5 минут на загрузку
+        )
+
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': f'Модель {model_name} загружена'})
+        else:
+            return jsonify({'error': f'Ошибка загрузки модели: {response.text}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/ollama/delete', methods=['POST'])
+def ollama_delete_model():
+    """Удалить модель из Ollama"""
+    data = request.get_json()
+    model_name = data.get('model')
+
+    if not model_name:
+        return jsonify({'error': 'Не указано имя модели'}), 400
+
+    try:
+        response = requests.delete(
+            f'http://localhost:11435/api/delete',
+            json={'name': model_name},
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': f'Модель {model_name} удалена'})
+        else:
+            return jsonify({'error': f'Ошибка удаления модели: {response.text}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/litellm/test', methods=['POST'])
+def litellm_test_model():
+    """Тестировать модель LiteLLM"""
+    data = request.get_json()
+    model_name = data.get('model', 'llama3')
+    message = data.get('message', 'Привет! Как дела?')
+
+    try:
+        headers = {'Authorization': 'Bearer sk-1234567890abcdef'}
+        response = requests.post(
+            'http://localhost:4000/v1/chat/completions',
+            headers=headers,
+            json={
+                'model': model_name,
+                'messages': [{'role': 'user', 'content': message}],
+                'max_tokens': 100
+            },
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            return jsonify({
+                'success': True,
+                'response': result['choices'][0]['message']['content'],
+                'model': model_name
+            })
+        else:
+            return jsonify({'error': f'Ошибка тестирования: {response.text}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/db/status', methods=['GET'])
+def db_status():
+    """Получить статус базы данных"""
+    try:
+        # Попытка подключения к PostgreSQL через Docker exec
+        result = subprocess.run([
+            'docker', 'exec', 'open-webui-hub-db-1',
+            'psql', '-U', 'openwebui', '-d', 'openwebui',
+            '-c', 'SELECT version();'
+        ], capture_output=True, text=True, timeout=10)
+
+        if result.returncode == 0:
+            version = result.stdout.strip()
+
+            # Получаем количество таблиц
+            tables_result = subprocess.run([
+                'docker', 'exec', 'open-webui-hub-db-1',
+                'psql', '-U', 'openwebui', '-d', 'openwebui',
+                '-c', "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';"
+            ], capture_output=True, text=True, timeout=10)
+
+            table_count = 0
+            if tables_result.returncode == 0:
+                # Парсим результат
+                lines = tables_result.stdout.strip().split('\n')
+                for line in lines:
+                    if line.strip().isdigit():
+                        table_count = int(line.strip())
+                        break
+
+            return jsonify({
+                'status': 'connected',
+                'version': version,
+                'table_count': table_count
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'error': result.stderr
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/service/redis/info', methods=['GET'])
+def redis_info():
+    """Получить информацию о Redis"""
+    try:
+        # Получаем информацию о Redis через Docker exec
+        result = subprocess.run([
+            'docker', 'exec', 'open-webui-hub-redis-1',
+            'redis-cli', 'INFO'
+        ], capture_output=True, text=True, timeout=10)
+
+        if result.returncode == 0:
+            info_text = result.stdout
+            info_dict = {}
+
+            # Парсим вывод INFO команды
+            for line in info_text.split('\n'):
+                if ':' in line and not line.startswith('#'):
+                    key, value = line.split(':', 1)
+                    info_dict[key.strip()] = value.strip()
+
+            return jsonify({
+                'status': 'connected',
+                'version': info_dict.get('redis_version', 'unknown'),
+                'memory_used': info_dict.get('used_memory_human', 'unknown'),
+                'connected_clients': info_dict.get('connected_clients', 'unknown'),
+                'total_commands_processed': info_dict.get('total_commands_processed', 'unknown'),
+                'uptime_in_seconds': info_dict.get('uptime_in_seconds', 'unknown')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'error': result.stderr
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/service/searxng/engines', methods=['GET'])
+def searxng_engines():
+    """Получить список поисковых движков SearXNG"""
+    try:
+        response = requests.get('http://localhost:8080/config', timeout=10)
+        if response.status_code == 200:
+            # SearXNG возвращает JSON с конфигурацией
+            config = response.json()
+            engines = config.get('engines', [])
+
+            return jsonify({
+                'engines': engines,
+                'count': len(engines)
+            })
+        else:
+            return jsonify({'error': 'SearXNG недоступен'}), 503
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== МАССОВОЕ УПРАВЛЕНИЕ СЕРВИСАМИ =====
+
+@app.route('/api/services/control', methods=['POST'])
+def control_multiple_services():
+    """Управление несколькими сервисами одновременно"""
+    data = request.get_json()
+    action = data.get('action')
+    services = data.get('services', [])
+
+    if action not in ['start', 'stop', 'restart']:
+        return jsonify({'error': 'Неизвестное действие'}), 400
+
+    if not services:
+        return jsonify({'error': 'Не указаны сервисы'}), 400
+
+    results = {}
+
+    for service_name in services:
+        if service_name not in SERVICES:
+            results[service_name] = {'error': 'Сервис не найден'}
+            continue
+
+        try:
+            result = subprocess.run(
+                ['docker-compose', '-f', 'compose.local.yml', action, service_name],
+                capture_output=True, text=True, cwd=PROJECT_ROOT
+            )
+
+            results[service_name] = {
+                'success': result.returncode == 0,
+                'output': result.stdout,
+                'error': result.stderr if result.returncode != 0 else None
+            }
+
+        except Exception as e:
+            results[service_name] = {'error': str(e)}
+
+    return jsonify({
+        'action': action,
+        'results': results
+    })
+
+@app.route('/api/services/restart-all', methods=['POST'])
+def restart_all_services():
+    """Перезапустить все сервисы"""
+    try:
+        result = subprocess.run(
+            ['docker-compose', '-f', 'compose.local.yml', 'restart'],
+            capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
+
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/services/stop-all', methods=['POST'])
+def stop_all_services():
+    """Остановить все сервисы"""
+    try:
+        result = subprocess.run(
+            ['docker-compose', '-f', 'compose.local.yml', 'down'],
+            capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
+
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/services/start-all', methods=['POST'])
+def start_all_services():
+    """Запустить все сервисы"""
+    try:
+        result = subprocess.run(
+            ['docker-compose', '-f', 'compose.local.yml', 'up', '-d'],
+            capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
+
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/stats', methods=['GET'])
+def get_system_stats():
+    """Получить общую статистику системы"""
+    try:
+        # Общая статистика системы
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+
+        # Статистика Docker
+        docker_stats = {}
+        if docker_client:
+            containers = docker_client.containers.list()
+            docker_stats = {
+                'total_containers': len(containers),
+                'running_containers': len([c for c in containers if c.status == 'running']),
+                'containers': [{'name': c.name, 'status': c.status} for c in containers]
+            }
+
+        return jsonify({
+            'system': {
+                'cpu_percent': cpu_percent,
+                'memory_total': memory.total,
+                'memory_used': memory.used,
+                'memory_percent': memory.percent,
+                'disk_total': disk.total,
+                'disk_used': disk.used,
+                'disk_percent': (disk.used / disk.total) * 100
+            },
+            'docker': docker_stats
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/security/logs', methods=['GET'])
+def get_security_logs():
+    """Получить логи безопасности"""
+    try:
+        security_log_path = os.path.join(PROJECT_ROOT, 'logs', 'security.log')
+
+        if not os.path.exists(security_log_path):
+            return jsonify({'logs': []})
+
+        logs = []
+        with open(security_log_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    log_entry = json.loads(line.strip())
+                    logs.append(log_entry)
+                except json.JSONDecodeError:
+                    continue
+
+        # Сортируем по времени (новые первыми)
+        logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        # Ограничиваем количество записей
+        limit = request.args.get('limit', 100, type=int)
+        logs = logs[:limit]
+
+        return jsonify({'logs': logs})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/service/<service_name>/validate', methods=['POST'])
+def validate_service_config(service_name):
+    """Валидировать конфигурацию сервиса без сохранения"""
+    if service_name not in SERVICES:
+        return jsonify({'error': 'Сервис не найден'}), 404
+
+    data = request.get_json()
+    service_config = SERVICES[service_name]
+
+    try:
+        validation_results = {
+            'valid': True,
+            'errors': [],
+            'warnings': []
+        }
+
+        # Валидация переменных окружения
+        if 'env_vars' in data:
+            try:
+                validate_env_vars(data['env_vars'])
+            except ValueError as e:
+                validation_results['valid'] = False
+                validation_results['errors'].append(f"Переменные окружения: {str(e)}")
+
+        # Валидация конфигурационных файлов
+        if 'config_files' in data:
+            for config_file, content in data['config_files'].items():
+                if config_file not in service_config.get('config_files', []):
+                    validation_results['valid'] = False
+                    validation_results['errors'].append(f"Файл {config_file} не разрешен для редактирования")
+                    continue
+
+                try:
+                    # Определяем тип файла
+                    file_type = 'text'
+                    if config_file.endswith(('.yml', '.yaml')):
+                        file_type = 'yaml'
+                    elif config_file.endswith('.json'):
+                        file_type = 'json'
+
+                    validate_config_content(content, file_type)
+                except ValueError as e:
+                    validation_results['valid'] = False
+                    validation_results['errors'].append(f"Файл {config_file}: {str(e)}")
+
+        return jsonify(validation_results)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    print("🚀 Запуск Dashboard API для Open WebUI Hub")
+    print("📊 API будет доступен на http://localhost:5002")
+    print("🔗 Эндпоинты:")
+    print("   GET  /api/status - статус сервисов")
+    print("   GET  /api/metrics - метрики системы")
+    print("   GET  /api/logs/<service> - логи сервиса")
+    print("   POST /api/docker/<action> - управление Docker")
+    print("   GET  /api/test/<service> - тест сервиса")
+
+    app.run(host='0.0.0.0', port=5002, debug=True)

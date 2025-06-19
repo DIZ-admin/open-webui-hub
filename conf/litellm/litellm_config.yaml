@@ -1,0 +1,231 @@
+model_list:
+  # Локальные модели через Ollama (оптимизированные настройки)
+  - model_name: llama3.2:3b
+    litellm_params:
+      model: ollama/llama3.2:3b
+      api_base: http://ollama:11434
+      timeout: 120  # Уменьшили таймаут
+      max_retries: 2
+      stream_timeout: 60
+
+  - model_name: qwen2.5-coder:1.5b
+    litellm_params:
+      model: ollama/qwen2.5-coder:1.5b
+      api_base: http://ollama:11434
+      timeout: 120
+      max_retries: 2
+      stream_timeout: 60
+
+  # Алиасы для удобства
+  - model_name: llama3
+    litellm_params:
+      model: ollama/llama3.2:3b
+      api_base: http://ollama:11434
+      timeout: 120
+      max_retries: 2
+      stream_timeout: 60
+
+  - model_name: coder
+    litellm_params:
+      model: ollama/qwen2.5-coder:1.5b
+      api_base: http://ollama:11434
+      timeout: 120
+      max_retries: 2
+      stream_timeout: 60
+
+  # Универсальный алиас для автоматического выбора модели
+  - model_name: auto
+    litellm_params:
+      model: ollama/llama3.2:3b
+      api_base: http://ollama:11434
+      timeout: 120
+      max_retries: 2
+      stream_timeout: 60
+
+  # Внешние провайдеры (активируются при наличии API ключей)
+  # OpenAI модели
+  - model_name: gpt-4o
+    litellm_params:
+      model: gpt-4o
+      api_key: ${OPENAI_API_KEY}
+      timeout: 120
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+      supports_vision: true
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: gpt-4o-mini
+      api_key: ${OPENAI_API_KEY}
+      timeout: 60
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+      supports_vision: true
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY}
+      timeout: 60
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+
+  # Anthropic модели
+  - model_name: claude-3-5-sonnet
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+      timeout: 120
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+      supports_vision: true
+
+  - model_name: claude-3-haiku
+    litellm_params:
+      model: anthropic/claude-3-haiku-20240307
+      api_key: ${ANTHROPIC_API_KEY}
+      timeout: 60
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+
+  # Google модели
+  - model_name: gemini-1.5-pro
+    litellm_params:
+      model: gemini/gemini-1.5-pro
+      api_key: ${GOOGLE_API_KEY}
+      timeout: 120
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+      supports_vision: true
+
+  - model_name: gemini-1.5-flash
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: ${GOOGLE_API_KEY}
+      timeout: 60
+      max_retries: 3
+    model_info:
+      mode: chat
+      supports_function_calling: true
+
+# Общие настройки
+general_settings:
+  # Мастер ключ для доступа к прокси
+  master_key: "sk-1234567890abcdef"
+
+  # Отключаем аутентификацию для health endpoint
+  disable_auth_on_health_endpoint: true
+
+  # Публичные endpoints без аутентификации
+  public_routes: ["/health", "/", "/docs", "/redoc"]
+
+  # Активация LiteLLM UI
+  ui_access_mode: "admin"
+  enable_ui: true
+
+  # База данных для логирования
+  database_url: "postgresql://postgres:postgres@db:5432/openwebui"
+
+  # Настройки логирования
+  set_verbose: true
+
+  # Настройки кэширования
+  cache:
+    type: "redis"
+    host: "redis"
+    port: 6379
+    ttl: 3600  # 1 час кэширования
+
+  # Настройки производительности (оптимизированные для Ollama)
+  max_parallel_requests: 10  # Уменьшили для локальных моделей
+  max_retries: 2
+  request_timeout: 120  # Уменьшили общий таймаут
+
+  # Настройки rate limiting
+  rpm_limit: 100  # requests per minute (для локальных моделей)
+  tpm_limit: 10000  # tokens per minute
+
+  # Настройки для Ollama
+  ollama_keep_alive: "5m"  # Держим модели в памяти 5 минут
+
+# Настройки логирования
+litellm_settings:
+  # Логирование в Redis для мониторинга
+  success_callback: ["redis"]
+  failure_callback: ["redis"]
+
+  # Настройки повторных попыток (оптимизированные)
+  num_retries: 2
+  request_timeout: 120
+
+  # Настройки для Ollama
+  drop_params: true  # Убирает неподдерживаемые параметры
+
+  # Дополнительные настройки для отладки
+  set_verbose: true
+  debug: false
+  
+# Настройки для разработки
+environment: development
+
+# Настройки CORS для веб-интерфейсов
+cors_settings:
+  allow_origins: ["*"]
+  allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allow_headers: ["*"]
+
+# Настройки маршрутизации и fallback
+router_settings:
+  routing_strategy: "simple-shuffle"  # Простая балансировка нагрузки
+  model_group_alias:
+    # Группа для общего чата (с fallback)
+    "chat":
+      - "llama3.2:3b"
+      - "gpt-4o-mini"
+      - "claude-3-haiku"
+      - "gemini-1.5-flash"
+
+    # Группа для кодирования
+    "coding":
+      - "qwen2.5-coder:1.5b"
+      - "gpt-4o"
+      - "claude-3-5-sonnet"
+
+    # Группа для быстрых ответов
+    "fast":
+      - "llama3.2:3b"
+      - "gpt-3.5-turbo"
+      - "gemini-1.5-flash"
+
+    # Группа для сложных задач
+    "advanced":
+      - "gpt-4o"
+      - "claude-3-5-sonnet"
+      - "gemini-1.5-pro"
+      - "llama3.2:3b"  # fallback на локальную модель
+
+# Настройки мониторинга и алертов
+alerting:
+  - service: "slack"
+    channel: "#alerts"
+    webhook_url: ${SLACK_WEBHOOK_URL}
+
+  - service: "webhook"
+    url: ${ALERT_WEBHOOK_URL}
+
+# Настройки для health checks
+health_check:
+  healthy_endpoints: ["/health", "/v1/models"]
+  unhealthy_endpoints: []
