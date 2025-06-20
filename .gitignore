@@ -1,19 +1,240 @@
-compose.yml
+# =============================================================================
+# Open WebUI Hub - .gitignore
+# =============================================================================
 
+# Docker Compose
+compose.yml
+docker-compose.override.yml
+
+# =============================================================================
+# Configuration Files (exclude production configs, keep examples)
+# =============================================================================
+
+# Nginx configurations (exclude production, keep examples)
+conf/nginx/*.conf
+conf/nginx/conf.d/*.conf
+!conf/nginx/*.example
+!conf/nginx/conf.d/*.example
+
+# Service configurations (exclude production, keep examples)
 conf/**/*.conf
 conf/**/*.ini
 conf/**/*.json
 conf/**/*.yml
+conf/**/*.yaml
+!conf/**/*.example
+!conf/**/*.example.*
 
+# ComfyUI specific
 conf/comfyui/runner-scripts/download-models.txt
 
+# =============================================================================
+# Environment Files (exclude all .env files, keep examples)
+# =============================================================================
 
-data/comfyui
-data/nginx
-data/ollama
-data/openwebui
-data/pipelines
-data/postgres
-data/redis
-
+# All environment files
 env/*.env
+*.env
+.env
+.env.local
+.env.production
+.env.development
+
+# Keep example files
+!env/*.example
+!*.env.example
+
+# =============================================================================
+# Data Directories (persistent volumes)
+# =============================================================================
+
+# Service data directories
+data/
+!data/.gitkeep
+
+# Specific service data
+data/comfyui/
+data/nginx/
+data/ollama/
+data/openwebui/
+data/pipelines/
+data/postgres/
+data/redis/
+data/tika/
+data/docling/
+data/auth/
+
+# =============================================================================
+# Logs and Cache
+# =============================================================================
+
+# Log files
+logs/
+*.log
+*.log.*
+
+# Cache directories
+cache/
+.cache/
+
+# =============================================================================
+# Hub Service (React/TypeScript/Node.js)
+# =============================================================================
+
+# Dependencies
+services/HUB/node_modules/
+services/HUB/.pnpm-store/
+services/HUB/pnpm-lock.yaml
+
+# Build outputs
+services/HUB/dist/
+services/HUB/build/
+services/HUB/.vite/
+
+# TypeScript
+services/HUB/*.tsbuildinfo
+services/HUB/.tmp/
+
+# ESLint cache
+services/HUB/.eslintcache
+
+# =============================================================================
+# Python Virtual Environments
+# =============================================================================
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =============================================================================
+# Development and IDE
+# =============================================================================
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# Temporary and Test Files
+# =============================================================================
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Test files
+test_document.*
+*.test.log
+
+# Backup files
+*.backup
+*.bak
+backups/
+.backup/
+
+# =============================================================================
+# Security and Secrets
+# =============================================================================
+
+# Secret files
+secrets/
+.secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# API keys and tokens
+.env.secrets
+api-keys.txt
+tokens.txt
+
+# =============================================================================
+# Docker and Container Related
+# =============================================================================
+
+# Docker volumes
+volumes/
+
+# Container logs
+container-logs/
+
+# =============================================================================
+# Monitoring and Analytics
+# =============================================================================
+
+# Monitoring data
+monitoring/
+metrics/
+prometheus/
+grafana/
+
+# =============================================================================
+# Documentation Build
+# =============================================================================
+
+# Documentation build outputs
+docs/_build/
+docs/.doctrees/
+site/
+
+# =============================================================================
+# Package Managers
+# =============================================================================
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# pnpm
+.pnpm-debug.log*
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
