@@ -4,10 +4,52 @@
 services:
   auth:
     env_file: env/auth.env
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 10s
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1"]
+      timeout: 5s
     image: ghcr.io/iamobservable/jwt-auth-validator:0.1.0
     restart: unless-stopped
     ports:
       - "9090:8080"
+
+  hub:
+    build:
+      context: services/hub
+      dockerfile: Dockerfile
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    depends_on:
+      - db
+      - redis
+      - watchtower
+    env_file: env/hub.env
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 15s
+      test: curl --fail http://localhost:5003/api/health || exit 1
+      timeout: 5s
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs/hub:/app/logs
+      - ./cache/hub:/app/cache
+    ports:
+      - "5003:5003"
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+          cpus: '0.15'
 
   db:
     depends_on:
@@ -47,7 +89,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 5s
-      test: "curl --fail http://localhost:5050/voices -H 'Authorization: Bearer your_api_key_here' || exit 1"
+      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.socket(); s.settimeout(1); s.connect(('localhost', 5050)); s.close()\" || exit 1"]
       timeout: 5s
     image: travisvn/openai-edge-tts:latest
     ports:
@@ -59,6 +101,12 @@ services:
     depends_on:
       - watchtower
     env_file: env/mcposerver.env
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 15s
+      test: ["CMD-SHELL", "curl --fail http://localhost:8000/docs || exit 1"]
+      timeout: 5s
     image: ghcr.io/open-webui/mcpo:latest
     restart: unless-stopped
     volumes:
@@ -73,7 +121,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 5s
-      test: curl --fail http://localhost/ || exit 1
+      test: ["CMD-SHELL", "curl --fail http://localhost/ || exit 1"]
       timeout: 3s
     image: nginx:latest
     ports:
@@ -91,7 +139,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 10s
-      test: curl --fail http://localhost:11434/api/version || exit 1
+      test: ["CMD-SHELL", "pgrep ollama || exit 1"]
       timeout: 3s
     image: ollama/ollama:latest
     ports:
@@ -122,9 +170,11 @@ services:
   openwebui:
     depends_on:
       - auth
+      - hub
       - docling
       - db
       - edgetts
+      - litellm
       - mcposerver
       - nginx
       - ollama
@@ -136,7 +186,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 10s
-      test: curl --fail http://localhost:8080/health || exit 1
+      test: curl --fail http://localhost:8080/ || exit 1
       timeout: 3s
     image: ghcr.io/open-webui/open-webui:main
     restart: unless-stopped
@@ -179,7 +229,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 10s
-      test: curl --fail http://localhost:8080/ || exit 1
+      test: ["CMD-SHELL", "pgrep uwsgi || exit 1"]
       timeout: 3s
     image: searxng/searxng:latest
     logging:
@@ -192,7 +242,7 @@ services:
       - ./conf/searxng/settings.yml:/etc/searxng/settings.yml:rw
       - ./conf/searxng/uwsgi.ini:/etc/searxng/uwsgi.ini:rw
     ports:
-      - "8080:8080"
+      - "8080:8888"
 
   tika:
     env_file: env/tika.env
@@ -200,7 +250,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 5s
-      test: curl --fail http://localhost:9998/tika || exit 1
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9998/tika || exit 1"]
       timeout: 5s
     image: apache/tika:latest-full
     ports:

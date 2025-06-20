@@ -1,0 +1,17 @@
+# Hub Service Backend Dependencies
+# Core web framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Docker integration
+docker==7.0.0
+
+# HTTP requests
+requests==2.31.0
+
+# System monitoring (optional, for extended metrics)
+# psutil==5.9.6  # Removed due to gcc dependency in Docker
+
+# Development and testing
+pytest==7.4.3
+pytest-flask==1.3.0

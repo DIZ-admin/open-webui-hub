@@ -36,20 +36,35 @@ Here is a link to follow 🔗[project development](https://github.com/users/iamo
 
 ## Tooling and Applications
 
-This starter project includes the following tooling and applications. A [Service Architecture Diagram](https://github.com/iamobservable/open-webui-starter/blob/main/docs/service-architecture-diagram.md) is also available that describes how the components of are connected.
+This starter project includes the following tooling and applications. A [Service Architecture Diagram](https://github.com/iamobservable/open-webui-starter/blob/main/docs/architecture/service-architecture-diagram.md) is also available that describes how the components are connected.
 
-- **[Cloudflare](https://www.cloudflare.com/)**: Platform providing anonymous proxying and SSL certificates
-- **[Docling](https://github.com/docling-project/docling-serve)**: Simplifies document processing, parsing diverse formats — including advanced PDF understanding — and providing seamless integrations with the gen AI ecosystem. (created by IBM)
-- **[Edge TTS](https://github.com/rany2/edge-tts)**: Python module that using Microsoft Edge's online text-to-speech service
-- **[MCP Server](https://modelcontextprotocol.io/introduction)**: Open protocol that standardizes how applications provide context to LLMs.
-- **[Nginx](https://nginx.org/)**: Web server, reverse proxy, load balancer, mail proxy, and HTTP cache
-- **[Ollama](https://ollama.com/)**: Local service API serving open source large language models
+### Core Services
+
 - **[Open WebUI](https://openwebui.com/)**: Open WebUI is an extensible, feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline
+
+- **[Nginx](https://nginx.org/)**: Web server, reverse proxy, load balancer, mail proxy, and HTTP cache
+
+### AI and LLM Services
+
+- **[Ollama](https://ollama.com/)**: Local service API serving open source large language models
+- **[LiteLLM](https://litellm.ai/)**: Unified API layer for multiple LLM providers (OpenAI, Anthropic, Google, local models)
+
+### Data and Storage
+
 - **[Postgresql](https://www.postgresql.org/)/[PgVector](https://github.com/pgvector/pgvector)**: A free and open-source relational database management system (RDBMS) emphasizing extensibility and SQL compliance (has vector addon)
 - **[Redis](https://redis.io/)**: An open source-available, in-memory storage, used as a distributed, in-memory key–value database, cache and message broker, with optional durability
-- **[Searxng](https://docs.searxng.org/)**: Free internet metasearch engine for open webui tool integration
-- **[Sqlite](https://www.sqlite.org/index.html)**: A C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine
+
+### Document Processing
+
+- **[Docling](https://github.com/docling-project/docling-serve)**: Simplifies document processing, parsing diverse formats — including advanced PDF understanding — and providing seamless integrations with the gen AI ecosystem. (created by IBM)
 - **[Tika](https://tika.apache.org/)**: A toolkit that detects and extracts metadata and text from over a thousand different file types
+
+### Additional Services
+
+- **[Cloudflare](https://www.cloudflare.com/)**: Platform providing anonymous proxying and SSL certificates
+- **[Edge TTS](https://github.com/rany2/edge-tts)**: Python module that using Microsoft Edge's online text-to-speech service
+- **[MCP Server](https://modelcontextprotocol.io/introduction)**: Open protocol that standardizes how applications provide context to LLMs.
+- **[Searxng](https://docs.searxng.org/)**: Free internet metasearch engine for open webui tool integration
 - **[Watchtower](https://github.com/containrrr/watchtower)**: Automated Docker container for updating container images automatically
 
 
@@ -77,9 +92,11 @@ cp conf/searxng/uwsgi.ini.example conf/searxng/uwsgi.ini
 
 cp env/auth.example env/auth.env
 cp env/cloudflared.example env/cloudflared.env
+
 cp env/db.example env/db.env
 cp env/docling.example env/docling.env
 cp env/edgetts.example env/edgetts.env
+cp env/litellm.example env/litellm.env
 cp env/ollama.example env/ollama.env
 cp env/mcposerver.example env/mcposerver.env
 cp env/openwebui.example env/openwebui.env
@@ -175,8 +192,10 @@ docker compose exec ollama bash
 ollama pull llama3.2:3b
 ```
 
-Once the containers are started, and your model downloaded, you are ready to access the Open WebUI platform. Visit 
+Once the containers are started, and your model downloaded, you are ready to access the Open WebUI platform. Visit
 `http://<domain-name>/` in your web browser.
+
+
 
 
 
@@ -377,9 +396,35 @@ curl http://localhost:9998/tika \
 ```
 
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the [docs/](docs/README.md) directory:
+
+### Quick Access
+- **🚀 [Quick Start](docs/getting-started/quick-start.md)** - Get running in 15 minutes
+- **⚙️ [Configuration](docs/configuration/README.md)** - Service setup and customization  
+- **👩‍💻 [Development](docs/development/README.md)** - Development environment and API
+- **🔧 [Operations](docs/operations/README.md)** - Monitoring, troubleshooting, and maintenance
+
+### Documentation Structure
+```
+docs/
+├── 📖 README.md              # Central documentation index
+├── 🚀 getting-started/       # Installation and quick start
+├── ⚙️ configuration/         # Service configuration guides
+├── 👩‍💻 development/          # Developer resources and API
+├── 🔧 operations/            # System administration
+├── 🏗️ architecture/          # System design and decisions
+└── 📦 archive/               # Historical documentation
+```
+
+**💡 Start with the [Documentation Index](docs/README.md) for complete navigation.**
+
 ## Contribution
 
-Contributions to the Open WebUI Starter project are welcome and encouraged! If you'd like to 
+Contributions to the Open WebUI Hub project are welcome and encouraged! If you'd like to 
 contribute, please fork this repository and submit a [pull request](https://github.com/iamobservable/open-webui-starter/pulls) with any 
 suggested changes or additions.
+
+For development guidelines, see our [Contributing Guide](docs/development/contributing.md).
 

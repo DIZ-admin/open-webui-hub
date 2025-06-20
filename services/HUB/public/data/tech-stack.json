@@ -1,0 +1,140 @@
+{
+  "categories": [
+    {
+      "id": "core-infrastructure",
+      "name": "Базовая инфраструктура",
+      "icon": "🏗️",
+      "technologies": [
+        {
+          "name": "Docker",
+          "version": "24.0",
+          "description": "Контейнеризация всех сервисов",
+          "status": "production"
+        },
+        {
+          "name": "Docker Compose",
+          "version": "2.20",
+          "description": "Оркестрация многоконтейнерных приложений",
+          "status": "production"
+        },
+        {
+          "name": "Nginx",
+          "version": "1.25",
+          "description": "Reverse proxy и load balancer",
+          "status": "production"
+        },
+        {
+          "name": "Cloudflare",
+          "version": "-",
+          "description": "CDN и защита от DDoS",
+          "status": "production"
+        }
+      ]
+    },
+    {
+      "id": "data-layer",
+      "name": "Уровень данных",
+      "icon": "🗄️",
+      "technologies": [
+        {
+          "name": "PostgreSQL",
+          "version": "16.1",
+          "description": "Основная реляционная база данных",
+          "status": "production"
+        },
+        {
+          "name": "pgvector",
+          "version": "0.5.1",
+          "description": "Векторное расширение для PostgreSQL",
+          "status": "production"
+        },
+        {
+          "name": "Redis",
+          "version": "7.2",
+          "description": "In-memory кэш и очереди сообщений",
+          "status": "production"
+        }
+      ]
+    },
+    {
+      "id": "ai-ml-stack",
+      "name": "AI/ML стек",
+      "icon": "🤖",
+      "technologies": [
+        {
+          "name": "Ollama",
+          "version": "0.1.47",
+          "description": "Локальный сервер для LLM моделей",
+          "status": "production"
+        },
+        {
+          "name": "LiteLLM",
+          "version": "1.28.1",
+          "description": "Единый API для различных LLM провайдеров",
+          "status": "beta"
+        },
+        {
+          "name": "Docling",
+          "version": "2.1.0",
+          "description": "Извлечение структурированных данных из документов",
+          "status": "production"
+        },
+        {
+          "name": "Apache Tika",
+          "version": "2.9.1",
+          "description": "Извлечение текста и метаданных",
+          "status": "production"
+        },
+        {
+          "name": "EdgeTTS",
+          "version": "6.1.9",
+          "description": "Text-to-Speech синтез",
+          "status": "production"
+        },
+        {
+          "name": "SearXNG",
+          "version": "2023.12.1",
+          "description": "Мета-поисковая система",
+          "status": "production"
+        }
+      ]
+    },
+    {
+      "id": "development-ops",
+      "name": "Разработка и операции",
+      "icon": "⚙️",
+      "technologies": [
+        {
+          "name": "Python",
+          "version": "3.11+",
+          "description": "Основной язык программирования бэкенда",
+          "status": "production"
+        },
+        {
+          "name": "FastAPI",
+          "version": "0.104",
+          "description": "Высокопроизводительный веб-фреймворк",
+          "status": "production"
+        },
+        {
+          "name": "Flask",
+          "version": "3.0",
+          "description": "Микро веб-фреймворк для вспомогательных сервисов",
+          "status": "production"
+        },
+        {
+          "name": "HTML/CSS/JS",
+          "version": "ES2023",
+          "description": "Фронтенд технологии",
+          "status": "production"
+        },
+        {
+          "name": "Watchtower",
+          "version": "1.7.1",
+          "description": "Автоматическое обновление контейнеров",
+          "status": "production"
+        }
+      ]
+    }
+  ]
+}
