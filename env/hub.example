@@ -1,0 +1,27 @@
+# Hub Service Configuration
+# API Configuration
+HUB_API_HOST=0.0.0.0
+HUB_API_PORT=5003
+HUB_DEBUG_MODE=false
+
+# Logging Configuration
+HUB_LOG_LEVEL=INFO
+HUB_LOG_FORMAT=simple
+
+# Docker Integration
+HUB_DOCKER_COMPOSE_FILE=compose.local.yml
+HUB_HEALTH_CHECK_TIMEOUT=5
+
+# Caching Configuration
+HUB_CACHE_TTL=30
+
+# Security
+HUB_SECRET_KEY=change-this-secret-key-in-production
+
+# Service Discovery
+HUB_ENABLE_SERVICE_DISCOVERY=true
+
+
+# Performance Tuning
+HUB_MAX_WORKERS=4
+HUB_WORKER_TIMEOUT=30
