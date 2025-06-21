@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отчет A/B Тестирования Open WebUI Hub</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 5px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status-excellent { background-color: #d4edda; border-color: #c3e6cb; }
+        .status-good { background-color: #d1ecf1; border-color: #bee5eb; }
+        .status-warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .status-critical { background-color: #f8d7da; border-color: #f5c6cb; }
+        .metric { display: inline-block; margin: 10px; padding: 10px; border-radius: 5px; background: #f8f9fa; }
+        .recommendation { margin: 10px 0; padding: 10px; border-left: 4px solid #007bff; background: #f8f9fa; }
+        .priority-critical { border-left-color: #dc3545; }
+        .priority-high { border-left-color: #fd7e14; }
+        .priority-medium { border-left-color: #ffc107; }
+        .priority-low { border-left-color: #28a745; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .chart { text-align: center; margin: 20px 0; }
+        .chart img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Отчет A/B Тестирования Open WebUI Hub</h1>
+        <p>Дата создания: 2025-06-21 02:08:49</p>
+        <p>Общая длительность тестирования: 104.715846 секунд</p>
+    </div>
+
+    <!-- Общий статус системы -->
+    <div class="section status-critical">
+        <h2>📊 Общий статус системы</h2>
+        <div class="metric">
+            <strong>Здоровье системы:</strong> 75.0%
+        </div>
+        <div class="metric">
+            <strong>Производительность:</strong> excellent
+        </div>
+        <div class="metric">
+            <strong>Кэширование:</strong> critical
+        </div>
+        <div class="metric">
+            <strong>Интеграция:</strong> excellent
+        </div>
+    </div>
+
+    <!-- Детальный анализ здоровья -->
+    <div class="section">
+        <h2>🏥 Анализ здоровья сервисов</h2>
+        <p><strong>Здоровых сервисов:</strong> 3/4</p>
+        <table>
+            <tr><th>Сервис</th><th>Статус</th><th>Время отклика (ms)</th><th>Контейнер</th><th>Ошибка</th></tr>
+            
+            <tr>
+                <td>hub</td>
+                <td>✅ Здоров</td>
+                <td>19.385099411010742</td>
+                <td>running</td>
+                <td>Нет</td>
+            </tr>
+            
+            <tr>
+                <td>litellm</td>
+                <td>❌ Нездоров</td>
+                <td>22.27616310119629</td>
+                <td>running</td>
+                <td>Нет</td>
+            </tr>
+            
+            <tr>
+                <td>nginx</td>
+                <td>✅ Здоров</td>
+                <td>4.701137542724609</td>
+                <td>running</td>
+                <td>Нет</td>
+            </tr>
+            
+            <tr>
+                <td>redis</td>
+                <td>✅ Здоров</td>
+                <td>0.33211708068847656</td>
+                <td>running</td>
+                <td>Нет</td>
+            </tr>
+            
+        </table>
+    </div>
+
+    <!-- Анализ производительности -->
+    <div class="section">
+        <h2>⚡ Анализ производительности</h2>
+        <p><strong>Среднее время отклика:</strong> 8.454504748219131ms</p>
+        <p><strong>Средняя успешность:</strong> 100.0%</p>
+
+        
+        <div class="chart">
+            <img src="tests/reports/response_times_chart.png" alt="График времени отклика">
+        </div>
+        
+
+        <table>
+            <tr><th>Сервис</th><th>Среднее время (ms)</th><th>P95 (ms)</th><th>Успешность</th><th>CPU %</th><th>Память (MB)</th></tr>
+            
+            <tr>
+                <td>hub</td>
+                <td>7.138984543936593</td>
+                <td>9.552490711212158</td>
+                <td>100.0%</td>
+                <td>1830.0%</td>
+                <td>22.953125</td>
+            </tr>
+            
+            <tr>
+                <td>litellm</td>
+                <td>12.11673698642037</td>
+                <td>15.729176998138428</td>
+                <td>100.0%</td>
+                <td>780.0000000000001%</td>
+                <td>0</td>
+            </tr>
+            
+        </table>
+    </div>
+
+    <!-- Анализ кэширования -->
+    <div class="section">
+        <h2>🔄 Анализ кэширования</h2>
+        <p><strong>Hit Rate:</strong> 0%</p>
+        <p><strong>Эффективность:</strong> низкая</p>
+        <p><strong>Использование памяти:</strong> 1.4383697509765625MB</p>
+        <p><strong>Операций в секунду:</strong> 0.03333333333333333</p>
+    </div>
+
+    <!-- Соответствие целевым метрикам -->
+    <div class="section">
+        <h2>🎯 Соответствие целевым метрикам</h2>
+        <p><strong>Общее соответствие:</strong> 60.0%</p>
+
+        
+        <div class="chart">
+            <img src="tests/reports/compliance_chart.png" alt="График соответствия метрикам">
+        </div>
+        
+
+        <table>
+            <tr><th>Метрика</th><th>Целевое значение</th><th>Фактическое значение</th><th>Статус</th></tr>
+            
+            
+            <tr>
+                <td>Response Time</td>
+                <td>50</td>
+                <td>8.454504748219131</td>
+                <td>✅ Соответствует</td>
+            </tr>
+            
+            
+            
+            <tr>
+                <td>Cache Hit Rate</td>
+                <td>90</td>
+                <td>0</td>
+                <td>❌ Не соответствует</td>
+            </tr>
+            
+            
+            
+            <tr>
+                <td>Cpu Usage</td>
+                <td>5</td>
+                <td>1190.0</td>
+                <td>❌ Не соответствует</td>
+            </tr>
+            
+            
+            
+            <tr>
+                <td>Memory Usage</td>
+                <td>100</td>
+                <td>16.803125</td>
+                <td>✅ Соответствует</td>
+            </tr>
+            
+            
+            
+            <tr>
+                <td>Success Rate</td>
+                <td>95</td>
+                <td>100.0</td>
+                <td>✅ Соответствует</td>
+            </tr>
+            
+            
+        </table>
+    </div>
+
+    <!-- Рекомендации -->
+    <div class="section">
+        <h2>💡 Рекомендации по оптимизации</h2>
+        
+        <div class="recommendation priority-critical">
+            <h4>Health - litellm</h4>
+            <p><strong>Проблема:</strong> Нездоровые сервисы: 1</p>
+            <p><strong>Рекомендация:</strong> Немедленно исследовать и устранить проблемы с сервисами</p>
+            <p><strong>Целевое значение:</strong> 100% здоровых сервисов</p>
+            <p><strong>Влияние:</strong> Восстановление функциональности системы</p>
+            <p><strong>Приоритет:</strong> CRITICAL</p>
+        </div>
+        
+        <div class="recommendation priority-high">
+            <h4>Caching - redis</h4>
+            <p><strong>Проблема:</strong> Низкий hit rate кэша: 0.0%</p>
+            <p><strong>Рекомендация:</strong> Пересмотреть стратегию кэширования, увеличить TTL для стабильных данных</p>
+            <p><strong>Целевое значение:</strong> > 90%</p>
+            <p><strong>Влияние:</strong> Значительное улучшение производительности</p>
+            <p><strong>Приоритет:</strong> HIGH</p>
+        </div>
+        
+        <div class="recommendation priority-medium">
+            <h4>Resources - hub</h4>
+            <p><strong>Проблема:</strong> Высокое использование CPU: 700.0%</p>
+            <p><strong>Рекомендация:</strong> Оптимизировать алгоритмы, рассмотреть горизонтальное масштабирование</p>
+            <p><strong>Целевое значение:</strong> < 5%</p>
+            <p><strong>Влияние:</strong> Снижение нагрузки на систему</p>
+            <p><strong>Приоритет:</strong> MEDIUM</p>
+        </div>
+        
+        <div class="recommendation priority-medium">
+            <h4>Resources - hub</h4>
+            <p><strong>Проблема:</strong> Высокое использование CPU: 2640.0%</p>
+            <p><strong>Рекомендация:</strong> Оптимизировать алгоритмы, рассмотреть горизонтальное масштабирование</p>
+            <p><strong>Целевое значение:</strong> < 5%</p>
+            <p><strong>Влияние:</strong> Снижение нагрузки на систему</p>
+            <p><strong>Приоритет:</strong> MEDIUM</p>
+        </div>
+        
+        <div class="recommendation priority-medium">
+            <h4>Resources - hub</h4>
+            <p><strong>Проблема:</strong> Высокое использование CPU: 1830.0%</p>
+            <p><strong>Рекомендация:</strong> Оптимизировать алгоритмы, рассмотреть горизонтальное масштабирование</p>
+            <p><strong>Целевое значение:</strong> < 5%</p>
+            <p><strong>Влияние:</strong> Снижение нагрузки на систему</p>
+            <p><strong>Приоритет:</strong> MEDIUM</p>
+        </div>
+        
+        <div class="recommendation priority-medium">
+            <h4>Resources - litellm</h4>
+            <p><strong>Проблема:</strong> Высокое использование CPU: 780.0%</p>
+            <p><strong>Рекомендация:</strong> Оптимизировать алгоритмы, рассмотреть горизонтальное масштабирование</p>
+            <p><strong>Целевое значение:</strong> < 5%</p>
+            <p><strong>Влияние:</strong> Снижение нагрузки на систему</p>
+            <p><strong>Приоритет:</strong> MEDIUM</p>
+        </div>
+        
+    </div>
+
+    <div class="section">
+        <h2>📈 Заключение</h2>
+        <p>Тестирование завершено. Общий статус системы: <strong>CRITICAL</strong></p>
+        <p>Для улучшения производительности рекомендуется выполнить 6 оптимизаций.</p>
+    </div>
+</body>
+</html>
+        

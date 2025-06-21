@@ -1,0 +1,132 @@
+{
+  "health_check": {
+    "success": false,
+    "status_code": 401,
+    "response_time_ms": 20.006895065307617
+  },
+  "models_availability": {
+    "success": true,
+    "total_models": 12,
+    "providers": {
+      "openai": [
+        "coder",
+        "qwen2.5-coder:1.5b",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gemini-1.5-pro",
+        "llama3.2:3b",
+        "claude-3-5-sonnet",
+        "auto",
+        "gemini-1.5-flash",
+        "llama3",
+        "claude-3-haiku",
+        "gpt-3.5-turbo"
+      ]
+    },
+    "provider_count": 1,
+    "response_time_ms": 3.4928321838378906,
+    "models_list": [
+      "coder",
+      "qwen2.5-coder:1.5b",
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gemini-1.5-pro",
+      "llama3.2:3b",
+      "claude-3-5-sonnet",
+      "auto",
+      "gemini-1.5-flash",
+      "llama3",
+      "claude-3-haiku",
+      "gpt-3.5-turbo"
+    ]
+  },
+  "provider_performance": {
+    "llama3": {
+      "success": true,
+      "tests_completed": 3,
+      "avg_response_time_ms": 15728.458563486734,
+      "min_response_time_ms": 9493.741989135742,
+      "max_response_time_ms": 19926.034927368164,
+      "avg_tokens": 109.33333333333333,
+      "tokens_per_second": 3.9002471688305382,
+      "success_rate": 1.0
+    },
+    "codellama": {
+      "success": false,
+      "error": "No successful generations"
+    },
+    "llama3:8b": {
+      "success": false,
+      "error": "No successful generations"
+    },
+    "mistral": {
+      "success": false,
+      "error": "No successful generations"
+    }
+  },
+  "fallback_mechanisms": {
+    "nonexistent_model": {
+      "tested": true,
+      "fallback_triggered": true,
+      "response_details": {
+        "success": false,
+        "model": "nonexistent-model-12345",
+        "status_code": 400,
+        "response_time_ms": 6.660938262939453,
+        "error": "{\"error\":{\"message\":\"{'error': '/chat/completions: Invalid model name passed in model=nonexistent-model-12345. Call `/v1/models` to view available models for your key.'}\",\"type\":\"None\",\"param\":\"None\",\"code\":\"400\"}}"
+      }
+    },
+    "invalid_parameters": {
+      "tested": true,
+      "error_handled": false,
+      "status_code": 200,
+      "response_text": "{\"id\":\"chatcmpl-a22607b7-750b-408b-856b-917e05282980\",\"created\":1750463440,\"model\":\"ollama/llama3.2:3b\",\"object\":\"chat.completion\",\"system_fingerprint\":null,\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"content\":\"### Server:\\nHello, User! It seems like you just sent \\\"Test\\\" without specifying a request or query. If you could please clarify what you would like to do (e.g., start chat, book appointment), I'd be happy to help!\",\"role\":\"assistant\",\"tool_calls\":null,\"function_call\":null}}],\"usage\":{\"completion_tokens\":52,\"prompt_tokens\":30,\"total_tokens\":82,\"completion_tokens_details\":null,\"prompt_tokens_details\":null}}"
+    },
+    "timeout_handling": {
+      "tested": true,
+      "timeout_occurred": true,
+      "timeout_handled": true
+    }
+  },
+  "caching_efficiency": {
+    "tested": true,
+    "first_request_time_ms": 4390.64884185791,
+    "second_request_time_ms": 3606.5399646759033,
+    "cache_improvement_percent": 17.85861054764311,
+    "likely_cached": false,
+    "same_response": false
+  },
+  "load_testing": {
+    "tested": true,
+    "concurrent_requests": 5,
+    "successful_requests": 5,
+    "failed_requests": 0,
+    "success_rate": 1.0,
+    "total_time_ms": 46820.218086242676,
+    "avg_response_time_ms": 28923.28977584839,
+    "min_response_time_ms": 11455.605030059814,
+    "max_response_time_ms": 46817.8608417511,
+    "requests_per_second": 0.10679147181224183
+  },
+  "error_handling": {
+    "missing_auth": {
+      "tested": true,
+      "auth_required": true,
+      "status_code": 401,
+      "response_text": "{\"error\":{\"message\":\"Authentication Error, No api key passed in.\",\"type\":\"auth_error\",\"param\":\"None\",\"code\":\"401\"}}"
+    },
+    "invalid_json": {
+      "tested": true,
+      "error_handled": true,
+      "status_code": 400,
+      "response_text": "{\"error\":{\"message\":\"{'error': '/chat/completions: Invalid model name passed in model=None. Call `/v1/models` to view available models for your key.'}\",\"type\":\"None\",\"param\":\"None\",\"code\":\"400\"}}"
+    },
+    "empty_prompt": {
+      "tested": true,
+      "handled_gracefully": true,
+      "status_code": 200,
+      "response_text": "{\"id\":\"chatcmpl-98abae5c-dcd3-4108-9662-6e3380ace9fd\",\"created\":1750463507,\"model\":\"ollama/llama3.2:3b\",\"object\":\"chat.completion\",\"system_fingerprint\":null,\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"content\":\"\",\"role\":\"assistant\",\"tool_calls\":null,\"function_call\":null}}],\"usage\":{\"completion_tokens\":0,\"prompt_tokens\":0,\"total_tokens\":0,\"completion_tokens_details\":null,\"prompt_tokens_details\":null}}"
+    }
+  },
+  "timestamp": "2025-06-21T01:51:47.068072"
+}

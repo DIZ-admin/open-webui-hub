@@ -1,0 +1,573 @@
+{
+  "docker_integration": {
+    "success": true,
+    "total_containers": 14,
+    "running_containers": 14,
+    "healthy_containers": 14,
+    "container_health_rate": 100.0,
+    "container_details": {
+      "open-webui-hub-hub-1": {
+        "name": "open-webui-hub-hub-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 45.08,
+        "memory_percent": 17.61,
+        "created": "2025-06-20T22:59:02.855065669Z",
+        "image": "open-webui-hub-hub:latest",
+        "ports": {
+          "5003/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "5003"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-nginx-1": {
+        "name": "open-webui-hub-nginx-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 18.03,
+        "memory_percent": 0.23,
+        "created": "2025-06-20T22:32:50.650612637Z",
+        "image": "nginx:latest",
+        "ports": {
+          "80/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "80"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-searxng-1": {
+        "name": "open-webui-hub-searxng-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 370.33,
+        "memory_percent": 4.73,
+        "created": "2025-06-20T22:32:50.504638345Z",
+        "image": "searxng/searxng:latest",
+        "ports": {
+          "8080/tcp": null,
+          "8888/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8080"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-edgetts-1": {
+        "name": "open-webui-hub-edgetts-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 40.73,
+        "memory_percent": 0.52,
+        "created": "2025-06-20T22:32:50.205827678Z",
+        "image": "travisvn/openai-edge-tts:latest",
+        "ports": {
+          "5050/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "5050"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-mcposerver-1": {
+        "name": "open-webui-hub-mcposerver-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.03,
+        "memory_usage_mb": 147.09,
+        "memory_percent": 1.88,
+        "created": "2025-06-20T22:21:30.737510919Z",
+        "image": "ghcr.io/open-webui/mcpo:latest",
+        "ports": {
+          "8000/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8000"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-ollama-1": {
+        "name": "open-webui-hub-ollama-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 390.89,
+        "memory_percent": 4.99,
+        "created": "2025-06-20T22:21:30.724873544Z",
+        "image": "ollama/ollama:latest",
+        "ports": {
+          "11434/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "11435"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-tika-1": {
+        "name": "open-webui-hub-tika-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.06,
+        "memory_usage_mb": 184.34,
+        "memory_percent": 2.35,
+        "created": "2025-06-20T22:12:04.053008087Z",
+        "image": "apache/tika:latest-full",
+        "ports": {
+          "9998/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "9998"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-auth-1": {
+        "name": "open-webui-hub-auth-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 20.54,
+        "memory_percent": 0.26,
+        "created": "2025-06-20T22:12:04.026533546Z",
+        "image": "ghcr.io/iamobservable/jwt-auth-validator:0.1.0",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "9090"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-openwebui-1": {
+        "name": "open-webui-hub-openwebui-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.04,
+        "memory_usage_mb": 235.6,
+        "memory_percent": 3.01,
+        "created": "2025-06-20T19:28:51.133554597Z",
+        "image": "ghcr.io/open-webui/open-webui:main",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "3000"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-litellm-1": {
+        "name": "open-webui-hub-litellm-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.03,
+        "memory_usage_mb": 397.03,
+        "memory_percent": 5.07,
+        "created": "2025-06-20T19:28:50.909650471Z",
+        "image": "ghcr.io/berriai/litellm:main-latest",
+        "ports": {
+          "4000/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "4000"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-db-1": {
+        "name": "open-webui-hub-db-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 57.21,
+        "memory_percent": 0.73,
+        "created": "2025-06-20T19:28:50.211328221Z",
+        "image": "pgvector/pgvector:pg15",
+        "ports": {
+          "5432/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "5432"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-redis-1": {
+        "name": "open-webui-hub-redis-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.04,
+        "memory_usage_mb": 167.04,
+        "memory_percent": 2.13,
+        "created": "2025-06-20T19:28:50.204647013Z",
+        "image": "redis/redis-stack:latest",
+        "ports": {
+          "6379/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "6379"
+            }
+          ],
+          "8001/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8001"
+            }
+          ]
+        }
+      },
+      "open-webui-hub-docling-1": {
+        "name": "open-webui-hub-docling-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.03,
+        "memory_usage_mb": 272.73,
+        "memory_percent": 3.48,
+        "created": "2025-06-20T19:28:49.824935013Z",
+        "image": "quay.io/docling-project/docling-serve:latest",
+        "ports": {
+          "5001/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "5001"
+            }
+          ],
+          "8080/tcp": null
+        }
+      },
+      "open-webui-hub-watchtower-1": {
+        "name": "open-webui-hub-watchtower-1",
+        "status": "running",
+        "health_status": "healthy",
+        "cpu_percent": 0.0,
+        "memory_usage_mb": 26.82,
+        "memory_percent": 0.34,
+        "created": "2025-06-20T19:28:49.819977929Z",
+        "image": "containrrr/watchtower:latest",
+        "ports": {
+          "8080/tcp": null
+        }
+      }
+    }
+  },
+  "service_health_chain": {
+    "total_services": 13,
+    "healthy_services": 8,
+    "health_percentage": 61.53846153846154,
+    "service_details": {
+      "hub": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 8.40616226196289,
+        "url": "http://localhost:5003/api/health"
+      },
+      "openwebui": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 4.8980712890625,
+        "url": "http://localhost:3000/"
+      },
+      "litellm": {
+        "healthy": false,
+        "status_code": 401,
+        "response_time_ms": 14.390945434570312,
+        "url": "http://localhost:4000/health"
+      },
+      "ollama": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 6.286859512329102,
+        "url": "http://localhost:11435/"
+      },
+      "redis": {
+        "healthy": true,
+        "method": "redis_ping"
+      },
+      "db": {
+        "healthy": false,
+        "error": "psycopg2 not installed",
+        "method": "postgres_connection"
+      },
+      "nginx": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 5.829095840454102,
+        "url": "http://localhost:80/"
+      },
+      "auth": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 2.1820068359375,
+        "url": "http://localhost:9090/health"
+      },
+      "docling": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 2.755880355834961,
+        "url": "http://localhost:5001/health"
+      },
+      "tika": {
+        "healthy": true,
+        "status_code": 200,
+        "response_time_ms": 14.014959335327148,
+        "url": "http://localhost:9998/"
+      },
+      "edgetts": {
+        "healthy": false,
+        "status_code": 404,
+        "response_time_ms": 13.569116592407227,
+        "url": "http://localhost:5050/"
+      },
+      "mcposerver": {
+        "healthy": false,
+        "status_code": 404,
+        "response_time_ms": 4.950046539306641,
+        "url": "http://localhost:8000/"
+      },
+      "searxng": {
+        "healthy": false,
+        "error": "Server disconnected",
+        "url": "http://localhost:8080/"
+      }
+    }
+  },
+  "nginx_routing": {
+    "total_routes": 6,
+    "successful_routes": 6,
+    "routing_success_rate": 100.0,
+    "route_details": {
+      "root": {
+        "success": true,
+        "status_code": 200,
+        "response_time_ms": 4.982948303222656,
+        "url": "http://localhost:80/",
+        "server": "nginx/1.27.5",
+        "location": null
+      },
+      "hub_route": {
+        "success": true,
+        "status_code": 200,
+        "response_time_ms": 3.2498836517333984,
+        "url": "http://localhost:80/hub",
+        "server": "nginx/1.27.5",
+        "location": null
+      },
+      "api_hub_route": {
+        "success": true,
+        "status_code": 200,
+        "response_time_ms": 1.4979839324951172,
+        "url": "http://localhost:80/api/hub/health",
+        "server": "nginx/1.27.5",
+        "location": null
+      },
+      "openwebui_route": {
+        "success": true,
+        "status_code": 200,
+        "response_time_ms": 2.3658275604248047,
+        "url": "http://localhost:80/docs",
+        "server": "nginx/1.27.5",
+        "location": null
+      },
+      "redis_route": {
+        "success": true,
+        "status_code": 200,
+        "response_time_ms": 4.925966262817383,
+        "url": "http://localhost:80/redis",
+        "server": "nginx/1.27.5",
+        "location": null
+      },
+      "searxng_route": {
+        "success": true,
+        "status_code": 301,
+        "response_time_ms": 1.489877700805664,
+        "url": "http://localhost:80/searxng",
+        "server": "nginx/1.27.5",
+        "location": "http://localhost/searxng/"
+      }
+    }
+  },
+  "service_communication": {
+    "total_tests": 4,
+    "successful_tests": 4,
+    "communication_success_rate": 100.0,
+    "test_details": {
+      "hub_to_redis": {
+        "success": true,
+        "cache_size": 2,
+        "cache_keys": 2,
+        "response_time_ms": 0
+      },
+      "hub_to_docker": {
+        "success": true,
+        "total_services": 14,
+        "services_with_container_info": 14,
+        "docker_integration_rate": 100.0
+      },
+      "litellm_to_ollama": {
+        "success": true,
+        "total_models": 12,
+        "ollama_models": 0,
+        "ollama_integration": false
+      },
+      "openwebui_to_litellm": {
+        "success": true,
+        "has_model_references": false,
+        "has_chat_interface": false,
+        "has_api_references": false,
+        "integration_indicators": 0
+      }
+    }
+  },
+  "dependency_validation": {
+    "openwebui": {
+      "total_dependencies": 11,
+      "available_dependencies": 7,
+      "dependency_satisfaction_rate": 63.63636363636363,
+      "dependency_details": {
+        "auth": {
+          "available": true,
+          "status_code": 200
+        },
+        "hub": {
+          "available": true,
+          "status_code": 200
+        },
+        "docling": {
+          "available": true,
+          "status_code": 200
+        },
+        "db": {
+          "available": true,
+          "note": "No HTTP health check"
+        },
+        "edgetts": {
+          "available": false,
+          "status_code": 404
+        },
+        "litellm": {
+          "available": false,
+          "status_code": 401
+        },
+        "mcposerver": {
+          "available": false,
+          "status_code": 404
+        },
+        "nginx": {
+          "available": true,
+          "status_code": 200
+        },
+        "ollama": {
+          "available": true,
+          "status_code": 200
+        },
+        "searxng": {
+          "available": false,
+          "error": "Connection failed"
+        },
+        "tika": {
+          "available": true,
+          "status_code": 200
+        }
+      }
+    },
+    "litellm": {
+      "total_dependencies": 2,
+      "available_dependencies": 2,
+      "dependency_satisfaction_rate": 100.0,
+      "dependency_details": {
+        "ollama": {
+          "available": true,
+          "status_code": 200
+        },
+        "redis": {
+          "available": true,
+          "note": "No HTTP health check"
+        }
+      }
+    },
+    "hub": {
+      "total_dependencies": 2,
+      "available_dependencies": 2,
+      "dependency_satisfaction_rate": 100.0,
+      "dependency_details": {
+        "db": {
+          "available": true,
+          "note": "No HTTP health check"
+        },
+        "redis": {
+          "available": true,
+          "note": "No HTTP health check"
+        }
+      }
+    },
+    "auth": {
+      "total_dependencies": 0,
+      "available_dependencies": 0,
+      "dependency_satisfaction_rate": 100,
+      "dependency_details": {}
+    },
+    "nginx": {
+      "total_dependencies": 0,
+      "available_dependencies": 0,
+      "dependency_satisfaction_rate": 100,
+      "dependency_details": {}
+    }
+  },
+  "network_connectivity": {
+    "total_connections_tested": 5,
+    "successful_connections": 5,
+    "network_connectivity_rate": 100.0,
+    "connection_details": {
+      "hub_to_redis": {
+        "success": true,
+        "host": "localhost",
+        "port": 6379,
+        "connection_result": 0
+      },
+      "hub_to_db": {
+        "success": true,
+        "host": "localhost",
+        "port": 5432,
+        "connection_result": 0
+      },
+      "litellm_to_ollama": {
+        "success": true,
+        "host": "localhost",
+        "port": 11435,
+        "connection_result": 0
+      },
+      "nginx_to_hub": {
+        "success": true,
+        "host": "localhost",
+        "port": 5003,
+        "connection_result": 0
+      },
+      "nginx_to_openwebui": {
+        "success": true,
+        "host": "localhost",
+        "port": 3000,
+        "connection_result": 0
+      }
+    }
+  },
+  "compose_validation": {
+    "success": true,
+    "config_valid": true,
+    "estimated_services": 847,
+    "config_size": 14404
+  },
+  "timestamp": "2025-06-21T02:27:20.339633"
+}

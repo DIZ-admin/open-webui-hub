@@ -342,6 +342,5 @@ docker-compose exec hub python -c "import docker; print(docker.from_env().ping()
 ## 📚 Дополнительные ресурсы
 
 - [Open WebUI Hub Documentation](../../docs/README.md)
-- [Dashboard API Integration](../dashboard/README.md)
 - [Docker Compose Configuration](../../compose.local.yml)
 - [Nginx Configuration](../../conf/nginx/conf.d/default.local.conf)
