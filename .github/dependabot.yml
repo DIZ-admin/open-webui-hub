@@ -1,0 +1,73 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "DIZ-admin"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/tests"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "DIZ-admin"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # Node.js dependencies for HUB service
+  - package-ecosystem: "npm"
+    directory: "/services/HUB"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "DIZ-admin"
+    labels:
+      - "dependencies"
+      - "nodejs"
+      - "hub-service"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/services/docling"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "DIZ-admin"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "docling"
+
+  - package-ecosystem: "docker"
+    directory: "/services/HUB"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "DIZ-admin"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "hub-service"

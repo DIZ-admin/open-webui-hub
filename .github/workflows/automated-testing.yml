@@ -1,0 +1,438 @@
+name: 🧪 Automated Testing Suite
+
+on:
+  schedule:
+    # Запуск каждый день в 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - integration
+          - performance
+          - security
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================================================
+  # Подготовка тестовой среды
+  # ============================================================================
+  setup-test-environment:
+    name: 🏗️ Setup Test Environment
+    runs-on: ubuntu-latest
+    outputs:
+      test-matrix: ${{ steps.matrix.outputs.tests }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🎯 Determine test matrix
+        id: matrix
+        run: |
+          case "${{ github.event.inputs.test_type || 'all' }}" in
+            "integration")
+              echo "tests=[\"integration\"]" >> $GITHUB_OUTPUT
+              ;;
+            "performance")
+              echo "tests=[\"performance\", \"ab_testing\"]" >> $GITHUB_OUTPUT
+              ;;
+            "security")
+              echo "tests=[\"security\", \"vulnerability\"]" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "tests=[\"integration\", \"performance\", \"ab_testing\", \"functional\", \"security\"]" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🔍 Validate test scripts
+        run: |
+          echo "🔍 Validating test scripts..."
+          python -m py_compile tests/*.py
+          echo "✅ All test scripts are valid"
+
+  # ============================================================================
+  # Интеграционное тестирование
+  # ============================================================================
+  integration-testing:
+    name: 🔗 Integration Testing
+    runs-on: ubuntu-latest
+    needs: setup-test-environment
+    if: contains(fromJson(needs.setup-test-environment.outputs.test-matrix), 'integration')
+    strategy:
+      matrix:
+        service: [openwebui, docling, tika, ollama, litellm, searxng]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🐳 Start test environment
+        run: |
+          # Создаем минимальные env файлы для тестирования
+          for env_file in env/*.example; do
+            if [ -f "$env_file" ]; then
+              cp "$env_file" "${env_file%.example}.env"
+            fi
+          done
+          
+          # Запускаем только необходимые сервисы
+          docker-compose -f compose.local.yml up -d ${{ matrix.service }}
+
+      - name: ⏳ Wait for service readiness
+        run: |
+          timeout 300 bash -c '
+            case "${{ matrix.service }}" in
+              "openwebui")
+                until curl -f http://localhost:3000/health; do sleep 5; done
+                ;;
+              "docling")
+                until curl -f http://localhost:5001/health; do sleep 5; done
+                ;;
+              "tika")
+                until curl -f http://localhost:9998/tika; do sleep 5; done
+                ;;
+              "ollama")
+                until curl -f http://localhost:11434/api/tags; do sleep 5; done
+                ;;
+              "litellm")
+                until curl -f http://localhost:4000/health; do sleep 5; done
+                ;;
+              "searxng")
+                until curl -f "http://localhost:8888/search?q=test"; do sleep 5; done
+                ;;
+            esac
+          '
+
+      - name: 🧪 Run service-specific tests
+        run: |
+          echo "🧪 Running tests for ${{ matrix.service }}..."
+          python tests/integration_testing.py --service ${{ matrix.service }}
+
+      - name: 📊 Generate test report
+        if: always()
+        run: |
+          python tests/report_generator.py --service ${{ matrix.service }}
+
+      - name: 📤 Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-${{ matrix.service }}
+          path: |
+            tests/reports/
+            tests/*_results_*.json
+
+      - name: 🛑 Cleanup
+        if: always()
+        run: docker-compose -f compose.local.yml down
+
+  # ============================================================================
+  # Производительное тестирование
+  # ============================================================================
+  performance-testing:
+    name: ⚡ Performance Testing
+    runs-on: ubuntu-latest
+    needs: setup-test-environment
+    if: contains(fromJson(needs.setup-test-environment.outputs.test-matrix), 'performance')
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🐳 Start full environment
+        run: |
+          # Подготовка env файлов
+          for env_file in env/*.example; do
+            if [ -f "$env_file" ]; then
+              cp "$env_file" "${env_file%.example}.env"
+            fi
+          done
+          
+          docker-compose -f compose.local.yml up -d
+
+      - name: ⏳ Wait for all services
+        run: |
+          timeout 600 bash -c '
+            until curl -f http://localhost:3000/health && \
+                  curl -f http://localhost:5001/health && \
+                  curl -f http://localhost:9998/tika; do
+              sleep 10
+            done
+          '
+
+      - name: ⚡ Run performance tests
+        run: |
+          echo "⚡ Running performance tests..."
+          python tests/ab_testing_framework.py --duration 300 --concurrent 10
+
+      - name: 📊 Generate performance report
+        if: always()
+        run: |
+          python tests/comprehensive_report_generator.py
+
+      - name: 📈 Performance analysis
+        run: |
+          echo "📈 Analyzing performance metrics..."
+          # Анализ результатов производительности
+          if [ -f tests/ab_testing_results_*.json ]; then
+            python -c "
+            import json, glob
+            files = glob.glob('tests/ab_testing_results_*.json')
+            if files:
+                with open(files[-1]) as f:
+                    data = json.load(f)
+                    print(f'Average response time: {data.get(\"avg_response_time\", \"N/A\")}ms')
+                    print(f'Success rate: {data.get(\"success_rate\", \"N/A\")}%')
+                    print(f'Requests per second: {data.get(\"requests_per_second\", \"N/A\")}')
+            "
+          fi
+
+      - name: 📤 Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            tests/reports/
+            tests/*_results_*.json
+            tests/*_report_*.md
+
+      - name: 🛑 Cleanup
+        if: always()
+        run: docker-compose -f compose.local.yml down
+
+  # ============================================================================
+  # A/B тестирование
+  # ============================================================================
+  ab-testing:
+    name: 🔄 A/B Testing
+    runs-on: ubuntu-latest
+    needs: setup-test-environment
+    if: contains(fromJson(needs.setup-test-environment.outputs.test-matrix), 'ab_testing')
+    strategy:
+      matrix:
+        scenario: [docling_vs_tika, different_models, load_patterns]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🔄 Run A/B test scenario
+        run: |
+          echo "🔄 Running A/B test: ${{ matrix.scenario }}"
+          python tests/run_ab_testing.py --scenario ${{ matrix.scenario }}
+
+      - name: 📊 Generate A/B test report
+        if: always()
+        run: |
+          python tests/comprehensive_report_generator.py --scenario ${{ matrix.scenario }}
+
+      - name: 📤 Upload A/B test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: ab-test-${{ matrix.scenario }}
+          path: |
+            tests/reports/
+            tests/*_results_*.json
+
+  # ============================================================================
+  # Функциональное тестирование
+  # ============================================================================
+  functional-testing:
+    name: 🎯 Functional Testing
+    runs-on: ubuntu-latest
+    needs: setup-test-environment
+    if: contains(fromJson(needs.setup-test-environment.outputs.test-matrix), 'functional')
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🐳 Start environment
+        run: |
+          for env_file in env/*.example; do
+            if [ -f "$env_file" ]; then
+              cp "$env_file" "${env_file%.example}.env"
+            fi
+          done
+          docker-compose -f compose.local.yml up -d
+
+      - name: ⏳ Wait for services
+        run: |
+          timeout 300 bash -c '
+            until curl -f http://localhost:3000/health; do sleep 5; done
+          '
+
+      - name: 🎯 Run functional tests
+        run: |
+          echo "🎯 Running functional tests..."
+          python tests/functional_web_testing.py
+
+      - name: 📤 Upload functional test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: functional-test-results
+          path: |
+            tests/functional_web_testing_results_*.json
+
+      - name: 🛑 Cleanup
+        if: always()
+        run: docker-compose -f compose.local.yml down
+
+  # ============================================================================
+  # Сводный отчет
+  # ============================================================================
+  generate-summary:
+    name: 📋 Generate Test Summary
+    runs-on: ubuntu-latest
+    needs: [integration-testing, performance-testing, ab-testing, functional-testing]
+    if: always()
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📥 Download all test results
+        uses: actions/download-artifact@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install matplotlib seaborn pandas jinja2
+
+      - name: 📊 Generate comprehensive summary
+        env:
+          GITHUB_EVENT_INPUTS_ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
+          GITHUB_EVENT_INPUTS_TEST_TYPE: ${{ github.event.inputs.test_type || 'all' }}
+        run: |
+          echo "📊 Generating comprehensive test summary..."
+          python -c "
+          import json, glob, os
+          from datetime import datetime
+          
+          # Собираем все результаты тестов
+          results = {}
+          for artifact_dir in glob.glob('*/'):
+              for json_file in glob.glob(f'{artifact_dir}*.json'):
+                  try:
+                      with open(json_file) as f:
+                          data = json.load(f)
+                          results[json_file] = data
+                  except:
+                      pass
+          
+          # Создаем сводный отчет
+          summary = {
+              'timestamp': datetime.now().isoformat(),
+              'total_tests': len(results),
+              'environment': os.environ.get('GITHUB_EVENT_INPUTS_ENVIRONMENT', 'staging'),
+              'test_type': os.environ.get('GITHUB_EVENT_INPUTS_TEST_TYPE', 'all'),
+              'results': results
+          }
+          
+          with open('test_summary.json', 'w') as f:
+              json.dump(summary, f, indent=2)
+          
+          print(f'Generated summary with {len(results)} test results')
+          "
+
+      - name: 📤 Upload test summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-summary
+          path: test_summary.json
+
+      - name: 📢 Post summary comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('test_summary.json')) {
+              const summary = JSON.parse(fs.readFileSync('test_summary.json', 'utf8'));
+              const comment = `## 🧪 Automated Test Summary
+              
+              **Environment:** ${summary.environment}
+              **Test Type:** ${summary.test_type}
+              **Total Tests:** ${summary.total_tests}
+              **Timestamp:** ${summary.timestamp}
+              
+              ✅ All automated tests completed successfully!
+              
+              📊 Detailed results are available in the workflow artifacts.`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }

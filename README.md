@@ -1,11 +1,36 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
-# Open WebUI Starter
-=====================
+# Open WebUI Hub
+===============
 
-The Open WebUI Starter project is meant to provide a quick template for 
-setting up [Open WebUI](https://openwebui.com/). More information can be found 
-about configurations on the [Open WebUI Docs](https://docs.openwebui.com/) or the [Gitub repository](https://github.com/open-webui/open-webui).
+![CI/CD Pipeline](https://github.com/DIZ-admin/open-webui-hub/workflows/🔄%20CI/CD%20Pipeline/badge.svg)
+![Security Scan](https://github.com/DIZ-admin/open-webui-hub/workflows/🔒%20Security%20Scanning/badge.svg)
+![Docling Fix](https://github.com/DIZ-admin/open-webui-hub/workflows/🔧%20Docling%20Fix%20Validation/badge.svg)
+
+The Open WebUI Hub project provides a comprehensive, production-ready template for
+setting up [Open WebUI](https://openwebui.com/) with full CI/CD automation, security scanning,
+and microservices architecture. More information can be found
+about configurations on the [Open WebUI Docs](https://docs.openwebui.com/) or the [GitHub repository](https://github.com/open-webui/open-webui).
+
+## 🔄 CI/CD & Automation
+
+### 🧪 Automated Testing
+- **Integration Tests:** Daily at 02:00 UTC across all microservices
+- **Security Scans:** Weekly vulnerability and secret scanning
+- **Performance Tests:** A/B testing and load testing on demand
+- **Dependency Updates:** Automated via Dependabot
+
+### 🚀 Deployment Pipeline
+- **Automated Docker builds** for all services
+- **Multi-platform support** (linux/amd64, linux/arm64)
+- **Staging environment** deployment
+- **Quality gates** with comprehensive testing
+
+### 🔒 Security Features
+- **Secret scanning** with TruffleHog and GitLeaks
+- **Vulnerability analysis** with Trivy and CodeQL
+- **Docker image scanning** for all services
+- **Dependency monitoring** for Python and Node.js
 
 
 ## 📢Join others on Discord
@@ -420,11 +445,36 @@ docs/
 
 **💡 Start with the [Documentation Index](docs/README.md) for complete navigation.**
 
-## Contribution
+## 🤝 Contributing
 
-Contributions to the Open WebUI Hub project are welcome and encouraged! If you'd like to 
-contribute, please fork this repository and submit a [pull request](https://github.com/iamobservable/open-webui-starter/pulls) with any 
-suggested changes or additions.
+Contributions to the Open WebUI Hub project are welcome and encouraged! We have comprehensive
+CI/CD pipelines that automatically test all changes.
 
-For development guidelines, see our [Contributing Guide](docs/development/contributing.md).
+### 🚀 Quick Start for Contributors
+1. **Fork** this repository
+2. **Create a feature branch** from `main`
+3. **Make your changes** following our coding standards
+4. **Add tests** for new functionality
+5. **Submit a pull request** - our CI/CD will automatically test your changes
+
+### 📋 What Gets Tested
+- ✅ **Code Quality:** Linting, formatting, and security scans
+- ✅ **Unit Tests:** Python and TypeScript components
+- ✅ **Integration Tests:** All microservices interaction
+- ✅ **Docker Builds:** Multi-platform container builds
+- ✅ **Security:** Vulnerability and secret scanning
+
+### 📚 Documentation
+- **[Contributing Guide](CONTRIBUTING.md)** - Detailed contribution guidelines
+- **[Development Setup](docs/development/README.md)** - Local development environment
+- **[Testing Guide](docs/operations/testing.md)** - Running and writing tests
+- **[Architecture](docs/architecture/README.md)** - System design and decisions
+
+### 🏷️ Issue Templates
+We provide structured templates for:
+- 🐛 **Bug Reports** - Help us fix issues quickly
+- ✨ **Feature Requests** - Suggest new functionality
+- 📚 **Documentation** - Improve our guides
+
+**All contributions are automatically tested and reviewed. Thank you for helping make Open WebUI Hub better! 🚀**
 

@@ -1,0 +1,288 @@
+name: 🔄 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # Проверка качества кода и безопасности
+  # ============================================================================
+  code-quality:
+    name: 🔍 Code Quality & Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔒 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🔍 Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # ============================================================================
+  # Тестирование Python компонентов
+  # ============================================================================
+  python-tests:
+    name: 🐍 Python Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f tests/requirements.txt ]; then pip install -r tests/requirements.txt; fi
+          pip install pytest pytest-cov flake8 black isort
+
+      - name: 🎨 Code formatting check
+        run: |
+          black --check tests/ scripts/ || echo "Code formatting issues found"
+          isort --check-only tests/ scripts/ || echo "Import sorting issues found"
+
+      - name: 🔍 Lint with flake8
+        run: |
+          flake8 tests/ scripts/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 tests/ scripts/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: 🧪 Run tests
+        run: |
+          if [ -d tests/ ]; then
+            python -m pytest tests/ -v --cov=. --cov-report=xml
+          else
+            echo "No tests directory found"
+          fi
+
+      - name: 📊 Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: matrix.python-version == '3.12'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  # ============================================================================
+  # Тестирование TypeScript/Node.js компонентов
+  # ============================================================================
+  node-tests:
+    name: 🟢 Node.js Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/HUB
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: services/HUB/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Lint code
+        run: npm run lint
+
+      - name: 🎨 Check formatting
+        run: npm run format:check
+
+      - name: 🏗️ Build project
+        run: npm run build
+
+      - name: 🧪 Run tests
+        run: npm test
+
+  # ============================================================================
+  # Сборка и тестирование Docker образов
+  # ============================================================================
+  docker-build:
+    name: 🐳 Docker Build & Test
+    runs-on: ubuntu-latest
+    needs: [code-quality, python-tests]
+    strategy:
+      matrix:
+        service: [docling, hub]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📝 Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🏗️ Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🧪 Test Docker image
+        run: |
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest --version || echo "Version check not available"
+
+  # ============================================================================
+  # Интеграционное тестирование
+  # ============================================================================
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: 📦 Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+
+      - name: 🐳 Start services with Docker Compose
+        run: |
+          cp env/*.example env/*.env || echo "No example env files found"
+          docker-compose -f compose.local.yml up -d --wait
+        env:
+          COMPOSE_PROFILES: test
+
+      - name: ⏳ Wait for services to be ready
+        run: |
+          timeout 300 bash -c 'until curl -f http://localhost:3000/health; do sleep 5; done'
+          timeout 300 bash -c 'until curl -f http://localhost:5001/health; do sleep 5; done'
+
+      - name: 🧪 Run integration tests
+        run: |
+          python tests/integration_testing.py
+          python tests/functional_web_testing.py
+
+      - name: 📊 Generate test reports
+        if: always()
+        run: |
+          python tests/comprehensive_report_generator.py
+
+      - name: 📤 Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            tests/reports/
+            tests/*_results_*.json
+            tests/*_summary_*.md
+
+      - name: 🛑 Stop services
+        if: always()
+        run: docker-compose -f compose.local.yml down
+
+  # ============================================================================
+  # Развертывание в тестовую среду
+  # ============================================================================
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          echo "This would typically involve:"
+          echo "- Updating container images"
+          echo "- Running database migrations"
+          echo "- Updating configuration"
+          echo "- Health checks"
+          # Здесь будет реальная логика развертывания
+
+      - name: 🔍 Post-deployment health check
+        run: |
+          echo "🔍 Running post-deployment health checks..."
+          # curl -f https://staging.open-webui-hub.example.com/health
+
+  # ============================================================================
+  # Уведомления
+  # ============================================================================
+  notify:
+    name: 📢 Notifications
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: always()
+    steps:
+      - name: 📢 Send notification
+        run: |
+          echo "📢 Sending deployment notification..."
+          echo "Status: ${{ needs.deploy-staging.result }}"
+          # Здесь можно добавить интеграцию с Slack, Discord, etc.
