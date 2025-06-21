@@ -149,7 +149,7 @@ jobs:
           python tests/report_generator.py --service ${{ matrix.service }}
 
       - name: 📤 Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: integration-test-${{ matrix.service }}
@@ -191,7 +191,7 @@ jobs:
               cp "$env_file" "${env_file%.example}.env"
             fi
           done
-          
+
           docker-compose -f compose.local.yml up -d
 
       - name: ⏳ Wait for all services
@@ -232,7 +232,7 @@ jobs:
           fi
 
       - name: 📤 Upload performance results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: performance-test-results
@@ -281,7 +281,7 @@ jobs:
           python tests/comprehensive_report_generator.py --scenario ${{ matrix.scenario }}
 
       - name: 📤 Upload A/B test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ab-test-${{ matrix.scenario }}
@@ -332,7 +332,7 @@ jobs:
           python tests/functional_web_testing.py
 
       - name: 📤 Upload functional test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: functional-test-results
@@ -356,7 +356,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 📥 Download all test results
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: 🐍 Set up Python
         uses: actions/setup-python@v4
@@ -405,7 +405,7 @@ jobs:
           "
 
       - name: 📤 Upload test summary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-summary
           path: test_summary.json
