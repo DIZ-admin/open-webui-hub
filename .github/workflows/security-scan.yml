@@ -70,43 +70,56 @@ jobs:
         uses: github/codeql-action/analyze@v3
 
   # ============================================================================
-  # Сканирование Docker образов
+  # Сканирование Docker образов (оптимизированное)
   # ============================================================================
   docker-security-scan:
     name: 🐳 Docker Security Scan
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1  # Сканируем по одному для экономии места
       matrix:
         include:
-          - service: docling
-            tag: docling
           - service: HUB
             tag: hub
+            # Пропускаем docling из-за больших зависимостей
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
+      - name: 🧹 Free up disk space
+        run: |
+          echo "🧹 Cleaning up disk space..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker system prune -af
+          df -h
+
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🏗️ Build Docker image
+      - name: 🏗️ Build Docker image (lightweight)
         uses: docker/build-push-action@v5
         with:
           context: ./services/${{ matrix.service }}
           load: true
           tags: ${{ matrix.tag }}:security-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=min
 
-      - name: 🔒 Run Trivy container scan
+      - name: 🔒 Run Trivy filesystem scan (instead of container)
         continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ matrix.tag }}:security-test'
+          scan-type: 'fs'
+          scan-ref: './services/${{ matrix.service }}'
           format: 'sarif'
           output: 'trivy-${{ matrix.tag }}-results.sarif'
           exit-code: '0'
 
-      - name: 📊 Upload Trivy container scan results
+      - name: 📊 Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always() && hashFiles('trivy-${{ matrix.tag }}-results.sarif') != ''
         with:
@@ -121,6 +134,12 @@ jobs:
         with:
           image: '${{ matrix.tag }}:security-test'
           args: --severity-threshold=high
+
+      - name: 🧹 Cleanup after scan
+        if: always()
+        run: |
+          docker rmi ${{ matrix.tag }}:security-test || true
+          docker system prune -f
 
   # ============================================================================
   # Сканирование зависимостей

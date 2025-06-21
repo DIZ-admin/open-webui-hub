@@ -30,39 +30,75 @@ jobs:
       - name: 🔍 Check Python syntax
         run: |
           echo "🔍 Checking Python syntax..."
-          find . -name "*.py" -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
-            echo "Checking $file"
-            python -m py_compile "$file" || exit 1
-          done
-          echo "✅ All Python files have valid syntax"
+          python_files=$(find . -name "*.py" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./services/HUB/node_modules/*")
+          if [ -z "$python_files" ]; then
+            echo "ℹ️ No Python files found to check"
+          else
+            echo "Found Python files:"
+            echo "$python_files"
+            echo "$python_files" | while read file; do
+              if [ -n "$file" ]; then
+                echo "Checking $file"
+                python -m py_compile "$file" || { echo "❌ Syntax error in $file"; exit 1; }
+              fi
+            done
+            echo "✅ All Python files have valid syntax"
+          fi
 
       - name: 🔍 Check YAML syntax
         run: |
           echo "🔍 Checking YAML syntax..."
           pip install pyyaml
-          find . -name "*.yml" -o -name "*.yaml" | while read file; do
-            echo "Checking $file"
-            python -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
-          done
-          echo "✅ All YAML files have valid syntax"
+          yaml_files=$(find . -name "*.yml" -o -name "*.yaml" | grep -v node_modules)
+          if [ -z "$yaml_files" ]; then
+            echo "ℹ️ No YAML files found to check"
+          else
+            echo "Found YAML files:"
+            echo "$yaml_files"
+            echo "$yaml_files" | while read file; do
+              if [ -n "$file" ]; then
+                echo "Checking $file"
+                python -c "import yaml; yaml.safe_load(open('$file'))" || { echo "❌ YAML syntax error in $file"; exit 1; }
+              fi
+            done
+            echo "✅ All YAML files have valid syntax"
+          fi
 
       - name: 🔍 Check JSON syntax
         run: |
           echo "🔍 Checking JSON syntax..."
-          find . -name "*.json" -not -path "./node_modules/*" | while read file; do
-            echo "Checking $file"
-            python -c "import json; json.load(open('$file'))" || exit 1
-          done
-          echo "✅ All JSON files have valid syntax"
+          json_files=$(find . -name "*.json" -not -path "./node_modules/*" -not -path "./services/HUB/node_modules/*")
+          if [ -z "$json_files" ]; then
+            echo "ℹ️ No JSON files found to check"
+          else
+            echo "Found JSON files:"
+            echo "$json_files"
+            echo "$json_files" | while read file; do
+              if [ -n "$file" ]; then
+                echo "Checking $file"
+                python -c "import json; json.load(open('$file'))" || { echo "❌ JSON syntax error in $file"; exit 1; }
+              fi
+            done
+            echo "✅ All JSON files have valid syntax"
+          fi
 
       - name: 🔍 Check shell scripts
         run: |
           echo "🔍 Checking shell script syntax..."
-          find . -name "*.sh" | while read file; do
-            echo "Checking $file"
-            bash -n "$file" || exit 1
-          done
-          echo "✅ All shell scripts have valid syntax"
+          shell_files=$(find . -name "*.sh")
+          if [ -z "$shell_files" ]; then
+            echo "ℹ️ No shell scripts found to check"
+          else
+            echo "Found shell scripts:"
+            echo "$shell_files"
+            echo "$shell_files" | while read file; do
+              if [ -n "$file" ]; then
+                echo "Checking $file"
+                bash -n "$file" || { echo "❌ Shell syntax error in $file"; exit 1; }
+              fi
+            done
+            echo "✅ All shell scripts have valid syntax"
+          fi
 
       - name: 🔍 Check Docker files
         run: |

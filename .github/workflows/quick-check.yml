@@ -1,0 +1,140 @@
+name: ⚡ Quick Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ============================================================================
+  # Быстрая проверка основных файлов
+  # ============================================================================
+  quick-validation:
+    name: ⚡ Quick Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Check workflow files
+        run: |
+          echo "🔍 Validating GitHub Actions workflows..."
+          for workflow in .github/workflows/*.yml; do
+            if [ -f "$workflow" ]; then
+              echo "Checking $workflow"
+              # Basic YAML syntax check
+              python -c "import yaml; yaml.safe_load(open('$workflow'))" || {
+                echo "❌ Invalid YAML in $workflow"
+                exit 1
+              }
+            fi
+          done
+          echo "✅ All workflow files are valid"
+
+      - name: 🔍 Check basic file structure
+        run: |
+          echo "🔍 Checking project structure..."
+          
+          # Check essential files exist
+          essential_files=(
+            "README.md"
+            "CONTRIBUTING.md"
+            ".gitignore"
+            "compose.local.yml"
+          )
+          
+          for file in "${essential_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing essential file: $file"
+              exit 1
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+
+      - name: 🔍 Check services structure
+        run: |
+          echo "🔍 Checking services structure..."
+          
+          services=("docling" "HUB")
+          for service in "${services[@]}"; do
+            service_dir="services/$service"
+            if [ ! -d "$service_dir" ]; then
+              echo "❌ Missing service directory: $service_dir"
+              exit 1
+            fi
+            
+            dockerfile="$service_dir/Dockerfile"
+            if [ ! -f "$dockerfile" ]; then
+              echo "❌ Missing Dockerfile in $service_dir"
+              exit 1
+            fi
+            
+            echo "✅ Service $service structure is valid"
+          done
+
+      - name: 🔍 Check Docker Compose files
+        run: |
+          echo "🔍 Checking Docker Compose files..."
+          
+          compose_files=("compose.local.yml")
+          for compose_file in "${compose_files[@]}"; do
+            if [ -f "$compose_file" ]; then
+              echo "Checking $compose_file"
+              # Basic YAML syntax check
+              python -c "import yaml; yaml.safe_load(open('$compose_file'))" || {
+                echo "❌ Invalid YAML in $compose_file"
+                exit 1
+              }
+              echo "✅ $compose_file is valid"
+            fi
+          done
+
+      - name: 🔍 Check environment files structure
+        run: |
+          echo "🔍 Checking environment files structure..."
+          
+          if [ ! -d "env" ]; then
+            echo "❌ Missing env directory"
+            exit 1
+          fi
+          
+          # Check for example files
+          example_files=$(find env -name "*.example" | wc -l)
+          if [ "$example_files" -eq 0 ]; then
+            echo "❌ No .example files found in env directory"
+            exit 1
+          fi
+          
+          echo "✅ Found $example_files environment example files"
+
+      - name: 🔍 Check documentation structure
+        run: |
+          echo "🔍 Checking documentation structure..."
+          
+          if [ ! -d "docs" ]; then
+            echo "❌ Missing docs directory"
+            exit 1
+          fi
+          
+          # Check for key documentation files
+          doc_files=$(find docs -name "*.md" | wc -l)
+          if [ "$doc_files" -eq 0 ]; then
+            echo "❌ No documentation files found"
+            exit 1
+          fi
+          
+          echo "✅ Found $doc_files documentation files"
+
+      - name: 📊 Summary
+        run: |
+          echo "🎉 Quick validation completed successfully!"
+          echo "✅ GitHub Actions workflows: Valid"
+          echo "✅ Project structure: Valid"
+          echo "✅ Services structure: Valid"
+          echo "✅ Docker Compose files: Valid"
+          echo "✅ Environment files: Present"
+          echo "✅ Documentation: Present"
+          echo ""
+          echo "🚀 Project is ready for development!"
