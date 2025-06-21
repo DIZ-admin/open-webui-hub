@@ -76,6 +76,11 @@ jobs:
             echo "$json_files" | while read file; do
               if [ -n "$file" ]; then
                 echo "Checking $file"
+                # Skip TypeScript config files (they may contain comments)
+                if [[ "$file" == *"tsconfig"* ]]; then
+                  echo "ℹ️ Skipping TypeScript config file: $file (may contain comments)"
+                  continue
+                fi
                 python -c "import json; json.load(open('$file'))" || { echo "❌ JSON syntax error in $file"; exit 1; }
               fi
             done
@@ -113,12 +118,36 @@ jobs:
           done
           echo "✅ All Dockerfiles have basic valid syntax"
 
+      - name: 🔍 Check TypeScript config files
+        run: |
+          echo "🔍 Checking TypeScript config files..."
+          tsconfig_files=$(find . -name "tsconfig*.json")
+          if [ -z "$tsconfig_files" ]; then
+            echo "ℹ️ No TypeScript config files found"
+          else
+            echo "Found TypeScript config files:"
+            echo "$tsconfig_files"
+            # TypeScript config files can contain comments, so we just check if they're readable
+            echo "$tsconfig_files" | while read file; do
+              if [ -n "$file" ]; then
+                echo "Checking $file"
+                if [ -r "$file" ]; then
+                  echo "✅ $file is readable"
+                else
+                  echo "❌ Cannot read $file"
+                  exit 1
+                fi
+              fi
+            done
+            echo "✅ All TypeScript config files are accessible"
+          fi
+
       - name: 🔍 Check TypeScript/JavaScript syntax (if exists)
         working-directory: services/HUB
         run: |
           if [ -f package.json ]; then
             echo "🔍 Checking TypeScript/JavaScript syntax..."
-            npm ci --only=dev
+            npm ci --only=dev --silent
             npx tsc --noEmit --skipLibCheck || echo "⚠️ TypeScript check completed with warnings"
             echo "✅ TypeScript/JavaScript syntax check completed"
           else
@@ -130,7 +159,8 @@ jobs:
           echo "🎉 Syntax check completed successfully!"
           echo "✅ Python files: Valid"
           echo "✅ YAML files: Valid"
-          echo "✅ JSON files: Valid"
+          echo "✅ JSON files: Valid (excluding TypeScript configs)"
+          echo "✅ TypeScript config files: Accessible"
           echo "✅ Shell scripts: Valid"
           echo "✅ Dockerfiles: Valid"
           echo "✅ TypeScript/JavaScript: Checked"
