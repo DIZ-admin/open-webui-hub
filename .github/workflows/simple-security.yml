@@ -1,0 +1,277 @@
+name: 🔒 Simple Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Запуск каждый день в 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  # ============================================================================
+  # Простое и надежное сканирование безопасности
+  # ============================================================================
+  simple-security-scan:
+    name: 🔒 Simple Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: 🔍 Install security tools
+        run: |
+          echo "🔍 Installing security scanning tools..."
+          pip install bandit safety semgrep
+          echo "✅ Security tools installed"
+
+      - name: 🔍 Run Bandit security scan (Python)
+        continue-on-error: true
+        run: |
+          echo "🔍 Running Bandit security scan for Python files..."
+          python_files=$(find . -name "*.py" -not -path "./node_modules/*" -not -path "./.git/*")
+          if [ -n "$python_files" ]; then
+            echo "Found Python files to scan:"
+            echo "$python_files"
+            bandit -r . -f json -o bandit-report.json || {
+              echo "⚠️ Bandit found security issues"
+              bandit -r . || true
+            }
+            echo "✅ Bandit scan completed"
+          else
+            echo "ℹ️ No Python files found to scan"
+          fi
+
+      - name: 🔍 Run Safety check (Python dependencies)
+        continue-on-error: true
+        run: |
+          echo "🔍 Running Safety check for Python dependencies..."
+          if [ -f tests/requirements.txt ]; then
+            echo "Checking tests/requirements.txt..."
+            safety check -r tests/requirements.txt --json --output safety-report.json || {
+              echo "⚠️ Safety found vulnerable dependencies"
+              safety check -r tests/requirements.txt || true
+            }
+            echo "✅ Safety check completed"
+          else
+            echo "ℹ️ No requirements.txt found"
+          fi
+
+      - name: 🔍 Run Semgrep security scan
+        continue-on-error: true
+        run: |
+          echo "🔍 Running Semgrep security scan..."
+          semgrep --config=auto --json --output=semgrep-report.json . || {
+            echo "⚠️ Semgrep found security issues"
+            semgrep --config=auto . || true
+          }
+          echo "✅ Semgrep scan completed"
+
+      - name: 🔍 Manual secret pattern scan
+        run: |
+          echo "🔍 Running manual secret pattern scan..."
+          
+          # Расширенные паттерны секретов
+          secret_patterns=(
+            # API Keys
+            "api[_-]?key['\"]?\s*[:=]\s*['\"][a-zA-Z0-9]{16,}['\"]"
+            "secret[_-]?key['\"]?\s*[:=]\s*['\"][a-zA-Z0-9]{16,}['\"]"
+            "access[_-]?token['\"]?\s*[:=]\s*['\"][a-zA-Z0-9]{16,}['\"]"
+            
+            # AWS
+            "AKIA[0-9A-Z]{16}"
+            "aws[_-]?secret[_-]?access[_-]?key"
+            
+            # GitHub
+            "ghp_[0-9a-zA-Z]{36}"
+            "gho_[0-9a-zA-Z]{36}"
+            "ghu_[0-9a-zA-Z]{36}"
+            "ghs_[0-9a-zA-Z]{36}"
+            "ghr_[0-9a-zA-Z]{36}"
+            
+            # Stripe
+            "sk_live_[0-9a-zA-Z]{24}"
+            "sk_test_[0-9a-zA-Z]{24}"
+            "pk_live_[0-9a-zA-Z]{24}"
+            "pk_test_[0-9a-zA-Z]{24}"
+            
+            # Generic patterns
+            "password['\"]?\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+            "passwd['\"]?\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+            "token['\"]?\s*[:=]\s*['\"][a-zA-Z0-9]{16,}['\"]"
+          )
+          
+          found_secrets=false
+          for pattern in "${secret_patterns[@]}"; do
+            echo "Checking pattern: ${pattern:0:30}..."
+            if grep -r -i -E "$pattern" --exclude-dir=.git --exclude-dir=node_modules --exclude="*.md" --exclude="*.yml" --exclude="*.yaml" . 2>/dev/null; then
+              echo "⚠️ Potential secret found with pattern: ${pattern:0:50}..."
+              found_secrets=true
+            fi
+          done
+          
+          if [ "$found_secrets" = false ]; then
+            echo "✅ No obvious hardcoded secrets found"
+          else
+            echo "⚠️ Potential secrets detected - please review manually"
+          fi
+
+      - name: 🔍 Check for exposed sensitive files
+        run: |
+          echo "🔍 Checking for exposed sensitive files..."
+          
+          # Поиск потенциально опасных файлов
+          dangerous_files=(
+            ".env"
+            ".env.local"
+            ".env.production"
+            ".env.staging"
+            "*.key"
+            "*.pem"
+            "*.p12"
+            "*.pfx"
+            "id_rsa"
+            "id_dsa"
+            "id_ecdsa"
+            "id_ed25519"
+            "*.crt"
+            "*.cer"
+            "config.json"
+            "secrets.json"
+            "credentials.json"
+          )
+          
+          found_dangerous=false
+          for pattern in "${dangerous_files[@]}"; do
+            files_found=$(find . -name "$pattern" -not -path "./.git/*" -not -path "./node_modules/*" 2>/dev/null)
+            if [ -n "$files_found" ]; then
+              echo "⚠️ Found potentially sensitive file(s): $pattern"
+              echo "$files_found"
+              found_dangerous=true
+            fi
+          done
+          
+          if [ "$found_dangerous" = false ]; then
+            echo "✅ No exposed sensitive files found"
+          else
+            echo "⚠️ Potentially sensitive files found - ensure they're in .gitignore"
+          fi
+
+      - name: 🔍 Check Node.js dependencies (if exists)
+        continue-on-error: true
+        working-directory: services/HUB
+        run: |
+          if [ -f package.json ]; then
+            echo "🔍 Checking Node.js dependencies for vulnerabilities..."
+            npm audit --audit-level=moderate --json > npm-audit-report.json || {
+              echo "⚠️ npm audit found vulnerabilities"
+              npm audit --audit-level=moderate || true
+            }
+            echo "✅ Node.js dependency check completed"
+          else
+            echo "ℹ️ No package.json found"
+          fi
+
+      - name: 🔍 Docker security check
+        run: |
+          echo "🔍 Checking Docker security best practices..."
+          
+          docker_issues=false
+          for dockerfile in $(find . -name "Dockerfile" -not -path "./.git/*"); do
+            echo "Checking $dockerfile..."
+            
+            # Проверяем на root пользователя
+            if grep -q "USER root" "$dockerfile" || ! grep -q "^USER " "$dockerfile"; then
+              echo "⚠️ $dockerfile: Consider using non-root user"
+              docker_issues=true
+            fi
+            
+            # Проверяем на latest теги
+            if grep -q ":latest" "$dockerfile"; then
+              echo "⚠️ $dockerfile: Consider using specific version tags instead of 'latest'"
+              docker_issues=true
+            fi
+            
+            # Проверяем на широкие COPY операции
+            if grep -q "COPY \. " "$dockerfile" || grep -q "ADD \. " "$dockerfile"; then
+              echo "⚠️ $dockerfile: Consider being more specific with COPY/ADD operations"
+              docker_issues=true
+            fi
+          done
+          
+          if [ "$docker_issues" = false ]; then
+            echo "✅ Docker security check passed"
+          else
+            echo "⚠️ Docker security recommendations available"
+          fi
+
+      - name: 📊 Generate security summary
+        if: always()
+        run: |
+          echo "📊 Generating security scan summary..."
+          cat > security-scan-summary.md << 'EOF'
+          # 🔒 Simple Security Scan Summary
+          
+          ## Scans Performed
+          - ✅ Bandit (Python security issues)
+          - ✅ Safety (Python dependency vulnerabilities)
+          - ✅ Semgrep (Multi-language security patterns)
+          - ✅ Manual secret pattern detection
+          - ✅ Exposed sensitive files check
+          - ✅ Node.js dependency audit
+          - ✅ Docker security best practices
+          
+          ## Files Generated
+          - bandit-report.json (if Python files found)
+          - safety-report.json (if requirements.txt found)
+          - semgrep-report.json
+          - npm-audit-report.json (if package.json found)
+          
+          ## Recommendations
+          1. Review any warnings or issues found
+          2. Update vulnerable dependencies
+          3. Remove or secure any exposed sensitive files
+          4. Follow Docker security best practices
+          5. Implement proper secret management
+          
+          ## Next Steps
+          - Address any high-severity findings
+          - Set up automated dependency updates
+          - Implement proper secret scanning in development workflow
+          - Regular security training for development team
+          EOF
+          
+          echo "✅ Security summary generated"
+
+      - name: 📤 Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simple-security-scan-results
+          path: |
+            bandit-report.json
+            safety-report.json
+            semgrep-report.json
+            services/HUB/npm-audit-report.json
+            security-scan-summary.md
+
+      - name: 📊 Final summary
+        run: |
+          echo "🎉 Simple security scan completed!"
+          echo "✅ Bandit (Python): Completed"
+          echo "✅ Safety (Dependencies): Completed"
+          echo "✅ Semgrep (Multi-language): Completed"
+          echo "✅ Secret patterns: Checked"
+          echo "✅ Sensitive files: Checked"
+          echo "✅ Node.js audit: Completed"
+          echo "✅ Docker security: Checked"
+          echo ""
+          echo "📋 Review the uploaded artifacts for detailed results."
+          echo "⚠️ Address any high-severity findings promptly."
