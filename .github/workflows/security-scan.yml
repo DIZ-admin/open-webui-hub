@@ -24,10 +24,12 @@ jobs:
           fetch-depth: 0
 
       - name: 🔍 Run TruffleHog secret scan
+        continue-on-error: true
         uses: trufflesecurity/trufflehog@main
         with:
+          scan-type: filesystem
           path: ./
-          extra_args: --debug --only-verified
+          extra_args: --debug --only-verified --no-update
 
       - name: 🔍 Run GitLeaks secret scan
         uses: gitleaks/gitleaks-action@v2

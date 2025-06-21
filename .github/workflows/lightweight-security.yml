@@ -1,0 +1,246 @@
+name: 🛡️ Lightweight Security Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ============================================================================
+  # Быстрая проверка безопасности
+  # ============================================================================
+  basic-security-check:
+    name: 🛡️ Basic Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Check for hardcoded secrets (basic patterns)
+        run: |
+          echo "🔍 Checking for potential hardcoded secrets..."
+          
+          # Основные паттерны секретов
+          secret_patterns=(
+            "password\s*=\s*['\"][^'\"]{8,}"
+            "api_key\s*=\s*['\"][^'\"]{16,}"
+            "secret\s*=\s*['\"][^'\"]{16,}"
+            "token\s*=\s*['\"][^'\"]{16,}"
+            "AKIA[0-9A-Z]{16}"
+            "sk_live_[0-9a-zA-Z]{24}"
+            "sk_test_[0-9a-zA-Z]{24}"
+            "ghp_[0-9a-zA-Z]{36}"
+            "gho_[0-9a-zA-Z]{36}"
+          )
+          
+          found_issues=false
+          for pattern in "${secret_patterns[@]}"; do
+            echo "Checking pattern: $pattern"
+            if grep -r -i -E "$pattern" --exclude-dir=.git --exclude-dir=node_modules --exclude="*.md" . 2>/dev/null; then
+              echo "⚠️ Potential secret found with pattern: $pattern"
+              found_issues=true
+            fi
+          done
+          
+          if [ "$found_issues" = false ]; then
+            echo "✅ No obvious hardcoded secrets found"
+          else
+            echo "⚠️ Potential secrets detected - please review manually"
+          fi
+
+      - name: 🔍 Check .gitignore for sensitive files
+        run: |
+          echo "🔍 Checking .gitignore configuration..."
+          
+          # Проверяем, что чувствительные файлы исключены
+          sensitive_patterns=(
+            "*.env"
+            "*.key"
+            "*.pem"
+            "secrets/"
+            "data/"
+            "logs/"
+            ".env.local"
+            ".env.production"
+          )
+          
+          missing_patterns=()
+          for pattern in "${sensitive_patterns[@]}"; do
+            if ! grep -q "$pattern" .gitignore 2>/dev/null; then
+              missing_patterns+=("$pattern")
+            fi
+          done
+          
+          if [ ${#missing_patterns[@]} -eq 0 ]; then
+            echo "✅ All sensitive file patterns are in .gitignore"
+          else
+            echo "⚠️ Missing patterns in .gitignore:"
+            printf '%s\n' "${missing_patterns[@]}"
+            echo "Consider adding these patterns to .gitignore"
+          fi
+
+      - name: 🔍 Check for exposed environment files
+        run: |
+          echo "🔍 Checking for exposed environment files..."
+          
+          # Поиск потенциально опасных файлов
+          dangerous_files=(
+            ".env"
+            ".env.local"
+            ".env.production"
+            "*.key"
+            "*.pem"
+            "id_rsa"
+            "id_dsa"
+            "*.p12"
+            "*.pfx"
+          )
+          
+          found_dangerous=false
+          for pattern in "${dangerous_files[@]}"; do
+            if find . -name "$pattern" -not -path "./.git/*" -not -path "./node_modules/*" | grep -q .; then
+              echo "⚠️ Found potentially dangerous file: $pattern"
+              find . -name "$pattern" -not -path "./.git/*" -not -path "./node_modules/*"
+              found_dangerous=true
+            fi
+          done
+          
+          if [ "$found_dangerous" = false ]; then
+            echo "✅ No exposed sensitive files found"
+          else
+            echo "⚠️ Potentially sensitive files found - ensure they're in .gitignore"
+          fi
+
+      - name: 🔍 Check Docker security best practices
+        run: |
+          echo "🔍 Checking Docker security best practices..."
+          
+          # Проверяем Dockerfile на соответствие best practices
+          for dockerfile in $(find . -name "Dockerfile" -not -path "./.git/*"); do
+            echo "Checking $dockerfile..."
+            
+            # Проверяем, что не используется root пользователь
+            if grep -q "USER root" "$dockerfile"; then
+              echo "⚠️ $dockerfile: Running as root user detected"
+            fi
+            
+            # Проверяем, что есть USER директива
+            if ! grep -q "^USER " "$dockerfile"; then
+              echo "⚠️ $dockerfile: No USER directive found - consider adding non-root user"
+            fi
+            
+            # Проверяем на использование latest тегов
+            if grep -q ":latest" "$dockerfile"; then
+              echo "⚠️ $dockerfile: Using 'latest' tag detected - consider using specific versions"
+            fi
+            
+            # Проверяем на COPY/ADD с широкими правами
+            if grep -q "COPY \. " "$dockerfile" || grep -q "ADD \. " "$dockerfile"; then
+              echo "⚠️ $dockerfile: Copying entire context - consider being more specific"
+            fi
+            
+            echo "✅ $dockerfile basic security check completed"
+          done
+
+      - name: 🔍 Check for common vulnerabilities in dependencies
+        run: |
+          echo "🔍 Checking for known vulnerable patterns..."
+          
+          # Проверка package.json на известные уязвимые пакеты
+          if [ -f services/HUB/package.json ]; then
+            echo "Checking Node.js dependencies..."
+            
+            # Список известных проблемных пакетов (примеры)
+            vulnerable_packages=(
+              "event-stream"
+              "flatmap-stream"
+              "eslint-scope"
+            )
+            
+            for package in "${vulnerable_packages[@]}"; do
+              if grep -q "\"$package\"" services/HUB/package.json; then
+                echo "⚠️ Found potentially vulnerable package: $package"
+              fi
+            done
+            
+            echo "✅ Node.js dependency check completed"
+          fi
+
+      - name: 🔍 Check for insecure configurations
+        run: |
+          echo "🔍 Checking for insecure configurations..."
+          
+          # Проверка на небезопасные настройки в конфигурационных файлах
+          config_issues=false
+          
+          # Проверка Docker Compose файлов
+          for compose_file in $(find . -name "*.yml" -o -name "*.yaml" | grep -i compose); do
+            echo "Checking $compose_file..."
+            
+            # Проверка на privileged режим
+            if grep -q "privileged.*true" "$compose_file"; then
+              echo "⚠️ $compose_file: Privileged mode detected"
+              config_issues=true
+            fi
+            
+            # Проверка на bind mount корневой системы
+            if grep -q ":/:" "$compose_file"; then
+              echo "⚠️ $compose_file: Potential root filesystem bind mount"
+              config_issues=true
+            fi
+          done
+          
+          if [ "$config_issues" = false ]; then
+            echo "✅ No obvious configuration security issues found"
+          fi
+
+      - name: 📊 Generate security summary
+        run: |
+          echo "📊 Generating security summary..."
+          cat > security-summary.md << 'EOF'
+          # 🛡️ Lightweight Security Check Summary
+          
+          ## Checks Performed
+          - ✅ Hardcoded secrets scan (basic patterns)
+          - ✅ .gitignore configuration check
+          - ✅ Exposed environment files check
+          - ✅ Docker security best practices
+          - ✅ Common vulnerability patterns
+          - ✅ Insecure configuration check
+          
+          ## Recommendations
+          1. Regularly update dependencies
+          2. Use specific version tags for Docker images
+          3. Implement proper secret management
+          4. Review and update .gitignore patterns
+          5. Follow Docker security best practices
+          
+          ## Next Steps
+          - Consider implementing more comprehensive security scanning
+          - Set up dependency vulnerability monitoring
+          - Implement automated secret scanning in CI/CD
+          - Regular security audits
+          EOF
+          
+          echo "✅ Security summary generated"
+
+      - name: 📤 Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightweight-security-summary
+          path: security-summary.md
+
+      - name: 📊 Final summary
+        run: |
+          echo "🎉 Lightweight security check completed!"
+          echo "✅ Basic secret patterns: Checked"
+          echo "✅ .gitignore configuration: Checked"
+          echo "✅ Exposed files: Checked"
+          echo "✅ Docker security: Checked"
+          echo "✅ Dependency patterns: Checked"
+          echo "✅ Configuration security: Checked"
+          echo ""
+          echo "📋 This is a basic security check. For comprehensive security scanning,"
+          echo "    consider using dedicated security tools like Snyk, Trivy, or SonarQube."
